@@ -32,8 +32,6 @@ def re_enter_pswd(password1:str,password2:str):
          status_code=400,
          detail='2 password should be same'
       )
-def uploadphoto(file:UploadFile=File()):
-    return file
     
 @router.post("/registration/", response_model=UserIn,tags=['auth'])
 def create_user(db: db_dependency, user: Userdb):
@@ -54,10 +52,10 @@ def create_user(db: db_dependency, user: Userdb):
         password2=user.password2
     )
 
-    a=uploadphoto 
+   
     new_user = User(
         username=user.username,
-        image_url=user.a,
+        image_url=user.image_url,
         email=user.email,
         password=password_hasher(user.password),
         bio=user.bio

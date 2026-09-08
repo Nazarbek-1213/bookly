@@ -97,9 +97,14 @@ def PrivateAccount(token_obj:Annotated[Token,Depends(token_checker)],db:db_depen
             bio=user.bio,
             # posts:
         )
-
+    
 # @router.get('post/')
         
 
+# @router.get('/session',tags=['user'])
+# def SessionCount(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
+#     ses=db.query(Token).filter(Token.user_id==token_obj.user_id)
+#     return {
+#         ses.device_info
+#     }
 
-        

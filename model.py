@@ -28,10 +28,13 @@ class Profile(BaseModel):
 class Private(BaseModel):
     username:str
     count_post:int
-
 class Changepassword(BaseModel):
     password:str=Field(min_length=8, max_length=29)
     password2:str=Field(min_length=8, max_length=29)
     old_password:str
-    
-    
+class BookResponce(BaseModel):
+    title:str
+    description:str
+    image_url:str
+class Comments(BaseModel):
+    text:str
