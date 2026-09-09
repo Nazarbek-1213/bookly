@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import secrets
 from enum import Enum as Acount
 
-engine = create_engine("postgresql://postgres:safarov2@localhost:5432/postgres", echo=True)
+engine = create_engine("postgresql://postgres:safarov2@localhost:5432/postgres")
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 

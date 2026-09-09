@@ -132,7 +132,7 @@ def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],
     db.refresh(user)
     return user
 
-@router.patch('/change-password/d{token_obj.user_id}',tags=['auth'])
+@router.patch('/change-password/{token_obj.user_id}',tags=['auth'])
 def PasswordChange(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],password:Changepassword):
     user=token_obj.user
     if not password.password==password.password2:

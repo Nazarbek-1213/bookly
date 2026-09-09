@@ -5,6 +5,7 @@ from fastapi import Depends,HTTPException
 from database import Token,User
 from datetime import datetime
 from model import Private
+from fastapi.security import OAuth2PasswordBearer
 def get_db():
     db=SessionLocal()
     try:
@@ -13,7 +14,9 @@ def get_db():
        db.close()
 db_dependency=Annotated[Session,Depends(get_db)]
 
-def token_checker(db:db_dependency,token:str):
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+
+def token_checker(db:db_dependency,token:str=Depends(oauth2_scheme)):
    token_obj=db.query(Token).filter(Token.token==token).first()
    if not token_obj:
       raise HTTPException(

@@ -67,7 +67,7 @@ def GetAll(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,us
 
 # =============== LIKE ======================
 
-@router.post('like/{book_id}',tags=['review'])
+@router.post('/like/{book_id}',tags=['review'])
 def LikePosts(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int):
      user=token_obj.user
      book=db.query(Book).filter(Book.id==book_id).first()
@@ -90,7 +90,7 @@ def LikePosts(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency
      return like
 
 
-@router.delete('like/{book_id}',tags=['review'])
+@router.delete('/like/{book_id}',tags=['review'])
 def disLikePosts(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int):
      user=token_obj.user
      like=db.query(Like).filter(Like.book_id==book_id,Like.user_id==user.id).first()
@@ -106,6 +106,7 @@ def disLikePosts(token_obj:Annotated[Token,Depends(token_checker)],db:db_depende
           )
      db.delete(like)
      db.commit()
+
      
 
      

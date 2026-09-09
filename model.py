@@ -1,6 +1,6 @@
 from pydantic import BaseModel,Field,field_validator
 from enum import Enum as PyEnum
-
+from datetime import datetime
 class Accounttype(PyEnum):
     PRIVATE_ACCOUNT = "private_account"
     PUBLIC_ACCOUNT = "public_account"
@@ -38,3 +38,6 @@ class BookResponce(BaseModel):
     image_url:str
 class Comments(BaseModel):
     text:str
+class SessionResponse(BaseModel):
+    device_info:str
+    created_at:datetime

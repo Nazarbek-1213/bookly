@@ -1,6 +1,6 @@
 from fastapi import APIRouter,Depends,HTTPException
 from depen import db_dependency
-from model import UserIn,Private
+from model import UserIn,Private,SessionResponse
 from database import User,Token,Follower,Accounttype,Book
 from depen import token_checker
 from typing import Annotated
@@ -103,13 +103,31 @@ def PrivateAccount(token_obj:Annotated[Token,Depends(token_checker)],db:db_depen
             posts=user.books
         )
     
-# @router.get('post/')
+# ------------- SESSION ---------------------
+
+@router.get('/sessions',tags=['Sessions'])
+def Sessions(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
+    user=token_obj.user
+    ses=db.query(Token).filter(Token.user_id==user.id).count()
+    return ses
+
+@router.get('/sessions/{token_id}',tags=['Sessions'])
+def Sessionone(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,token_id:str):
+    ses=db.query(Token).filter(Token.id==token_id).first()
+    return ses.device_info
+
+# @router.get('/sessions/all',tags=['Sessions'],response_model=list[SessionResponse])
+# def Sessionall(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
+#     user=token_obj.user
+#     ses=db.query(Token).filter(Token.user_id==user.id).all()
+#     return ses
+
+
+
+            
         
 
-# @router.get('/session',tags=['user'])
-# def SessionCount(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
-#     ses=db.query(Token).filter(Token.user_id==token_obj.user_id)
-#     return {
-#         ses.device_info
-#     }
+
+    
+
 
