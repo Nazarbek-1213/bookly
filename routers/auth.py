@@ -122,17 +122,15 @@ def Logout(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)]):
     }
 
 @router.put('/EditInfo/{token_obj}',tags=['auth'],response_model=UserIn)
-def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],user:UserIn):
+def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],new_user:UserIn):
     user=token_obj.user
-    new= User(
-        username=user.username,
-        image_url=user.image_url,
-        email=user.email,
-        bio=user.bio
-    )
+    user.username=new_user.username
+    user.image_url=new_user.image_url
+    user.email=new_user.email
+    user.bio=new_user.bio
     db.commit()
-    db.refresh(new)
-    return new
+    db.refresh(user)
+    return user
 
 @router.patch('/change-password/d{token_obj.user_id}',tags=['auth'])
 def PasswordChange(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],password:Changepassword):

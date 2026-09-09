@@ -1,7 +1,7 @@
 from fastapi import APIRouter,Depends,HTTPException
 from depen import db_dependency
 from model import UserIn,Private
-from database import User,Token,Follower,Accounttype
+from database import User,Token,Follower,Accounttype,Book
 from depen import token_checker
 from typing import Annotated
 
@@ -80,22 +80,27 @@ def AccountType(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependen
             db.refresh(user)
             return user
 
-@router.get('profile/{token_obj}',tags=['user'])
-def PrivateAccount(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
-    user=db.query(User).filter(User.id==token_obj.user_id).first()
+@router.get('profile/{user_id}',tags=['user'])
+def PrivateAccount(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,user_id:str):
+    user=db.query(User).filter(User.id==user_id).first()  
+    if not user:
+             raise HTTPException(
+                 status_code=400,
+                 detail='user not found'
+             )   
     if user.account_type==Accounttype.PRIVATE_ACCOUNT:
+        postr=db.query(Book).filter(token_obj.user_id==Book.author_id).count()
         return User(
-            username=user.username
-            #count_posts: 
-            
+            username=user.username,
+            count_posts=postr            
         )
-    if user.account_type==Accounttype.PUBLIC_ACCOUNT:
-        return User(
+    if user.account_type==Accounttype.PUBLIC_ACCOUNT:      
+      return User(
             username=user.username,
             image_url=user.image_url,
             email=user.email,
             bio=user.bio,
-            # posts:
+            posts=user.books
         )
     
 # @router.get('post/')

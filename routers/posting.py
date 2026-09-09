@@ -44,16 +44,12 @@ def ChangeInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependenc
             raise HTTPException(
                 status_code=400,
                 detail='it is not your post or book not found')
-    new=Book(
-         title=book.title,
-         description=book.description,
-         author_id=user.id,
-         image_url=book.image_url
-    )
-    db.add(new)
+    bookid.title=book.title,
+    bookid.description=book.description,
+    bookid.image_url=book.image_url
     db.commit()
-    db.refresh(new)
-    return new
+    db.refresh(bookid)
+    return bookid
 
 @router.get('/see',response_model=list[BookResponce]| None ,tags=['post'])
 def PostSee(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
