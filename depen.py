@@ -9,10 +9,15 @@ from fastapi.security import OAuth2PasswordBearer
 import uuid
 import firebase_admin
 from firebase_admin import credentials,storage
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+FIREBASE_BUCKET = os.getenv("FIREBASE_BUCKET")
 
 cred=credentials.Certificate('firebase-key.json')
 firebase_admin.initialize_app(cred,{
-           'storageBucket': 'reab-53b5d.firebasestorage.app'
+           'storageBucket': FIREBASE_BUCKET
 
 })
 bucket = storage.bucket()
