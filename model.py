@@ -1,15 +1,16 @@
 from pydantic import BaseModel,Field,field_validator
 from enum import Enum as PyEnum
 from datetime import datetime
+from fastapi import UploadFile
 class Accounttype(PyEnum):
     PRIVATE_ACCOUNT = "private_account"
     PUBLIC_ACCOUNT = "public_account"
 
 class UserIn(BaseModel):
     username:str=Field(min_length=5)
-    image_url:str
     email:str
     bio:str=Field(default=None, max_length=300)
+    image_url:str|None
 
 class Userdb(UserIn):
     password:str=Field(min_length=8, max_length=29)
@@ -41,3 +42,8 @@ class Comments(BaseModel):
 class SessionResponse(BaseModel):
     device_info:str
     created_at:datetime
+class UserInn(BaseModel):
+    username:str=Field(min_length=5)
+    email:str
+    bio:str=Field(default=None, max_length=300)
+    image_url:str

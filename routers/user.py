@@ -1,13 +1,13 @@
 from fastapi import APIRouter,Depends,HTTPException
 from depen import db_dependency
-from model import UserIn,Private,SessionResponse
+from model import UserIn,Private,SessionResponse,UserInn
 from database import User,Token,Follower,Accounttype,Book
 from depen import token_checker
 from typing import Annotated
 
 router=APIRouter(prefix='/user')
 
-@router.get("/profile/me",tags=['user'])
+@router.get("/profile/me",tags=['user'],response_model=UserInn)
 def profile(
     token_obj: Annotated[Token, Depends(token_checker)]
 ):
@@ -94,16 +94,23 @@ def PrivateAccount(token_obj:Annotated[Token,Depends(token_checker)],db:db_depen
             username=user.username,
             count_posts=postr            
         )
-    if user.account_type==Accounttype.PUBLIC_ACCOUNT:      
-      return User(
+    if user.account_type==Accounttype.PUBLIC_ACCOUNT:  
+
+        posts=db.query(Book).filter(Book.author_id==user.id).all()    
+    return User(
             username=user.username,
-            image_url=user.image_url,
+            image_url=posts,
             email=user.email,
             bio=user.bio,
             posts=user.books
         )
     
 # ------------- SESSION ---------------------
+@router.get('/sessions/all',tags=['Sessions'],response_model=list[SessionResponse])
+def Sessionall(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
+    user=token_obj.user
+    ses=db.query(Token).filter(Token.user_id==user.id).all()
+    return ses
 
 @router.get('/sessions',tags=['Sessions'])
 def Sessions(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
@@ -116,11 +123,8 @@ def Sessionone(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependenc
     ses=db.query(Token).filter(Token.id==token_id).first()
     return ses.device_info
 
-# @router.get('/sessions/all',tags=['Sessions'],response_model=list[SessionResponse])
-# def Sessionall(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
-#     user=token_obj.user
-#     ses=db.query(Token).filter(Token.user_id==user.id).all()
-#     return ses
+
+
 
 
 

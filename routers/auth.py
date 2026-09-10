@@ -1,14 +1,15 @@
 from datetime import datetime, timedelta
 from typing import Annotated
 from dotenv import load_dotenv
-from fastapi import Depends, APIRouter, HTTPException, status,Request,UploadFile,File
+from fastapi import Depends, APIRouter, HTTPException, status,Request,UploadFile,File,Form
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from database import User,Token
 import secrets
 from model import UserIn,Userdb,UserLogin,TokenInfo,Changepassword
 from depen import get_db,db_dependency
-from depen import token_checker
+from depen import token_checker,uploadpic
+
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 router=APIRouter(prefix='/auth')
@@ -33,12 +34,19 @@ def re_enter_pswd(password1:str,password2:str):
          detail='2 password should be same'
       )
     
-@router.post("/registration/", response_model=UserIn,tags=['auth'])
-def create_user(db: db_dependency, user: Userdb):
+@router.post("/registration/",response_model=UserIn,tags=['auth'])
+async def create_user( db: db_dependency,
+        username: str = Form(...),
+    email: str = Form(...),
+    bio: str = Form(None),
+    password: str = Form(...),
+    password2: str = Form(...),
+    file: UploadFile = File(None),
+                       ):
 
     old_user = get_user_by_name(
         db=db,
-        username=user.username
+        username=username
     )
 
     if old_user:
@@ -48,17 +56,19 @@ def create_user(db: db_dependency, user: Userdb):
         )
 
     re_enter_pswd(
-        password1=user.password,
-        password2=user.password2
+        password1=password,
+        password2=password2
     )
 
    
+
+    firebase_url= await uploadpic(file)
     new_user = User(
-        username=user.username,
-        image_url=user.image_url,
-        email=user.email,
-        password=password_hasher(user.password),
-        bio=user.bio
+        username=username,
+        image_url=firebase_url,
+        email=email,
+        password=password_hasher(password),
+        bio=bio
     )
 
     db.add(new_user)
@@ -72,7 +82,7 @@ def create_user(db: db_dependency, user: Userdb):
 
 
 @router.post('/login',response_model=TokenInfo,tags=['auth'])
-def Login(db:db_dependency,username:str,password:str,request:Request):   
+def Login(db:db_dependency,request:Request,username:str=Form(...),password:str=Form(...)):   
    user=db.query(User).filter(User.username==username).first()
    if not  user:
       raise HTTPException(
@@ -122,12 +132,16 @@ def Logout(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)]):
     }
 
 @router.put('/EditInfo/{token_obj}',tags=['auth'],response_model=UserIn)
-def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],new_user:UserIn):
+def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],username: str = Form(...),
+    email: str = Form(...),
+    bio: str = Form(None),
+    file:UploadFile=File(None)):
     user=token_obj.user
-    user.username=new_user.username
-    user.image_url=new_user.image_url
-    user.email=new_user.email
-    user.bio=new_user.bio
+    firebase_url=uploadpic(file)
+    user.username=username
+    user.image_url=firebase_url
+    user.email=email
+    user.bio=bio
     db.commit()
     db.refresh(user)
     return user

@@ -1,20 +1,23 @@
-from fastapi import APIRouter,Depends,HTTPException
-from depen import db_dependency
+from fastapi import APIRouter,Depends,HTTPException,UploadFile,File
+from depen import db_dependency,uploadpic
 from model import UserIn,Private,BookResponce
 from database import User,Token,Follower,Accounttype,Book
 from depen import token_checker
 from typing import Annotated
 
+
 router=APIRouter(prefix='/post')
 
 @router.post('/post',response_model=BookResponce,tags=['post'])
-def SharePost(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book:BookResponce):
+def SharePost(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,
+              title:str=File(...),description:str=File(...),file:UploadFile=File(...)):
     user=token_obj.user
+    firebase_url=uploadpic(file)
     posting=Book(
-        title=book.title,
-        description=book.description,
+        title=title,
+        description=description,
         author_id=user.id,
-        image_url=book.image_url   
+        image_url=firebase_url  
     )
     db.add(posting)
     db.commit()
@@ -37,16 +40,17 @@ def DeletePost(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependenc
     }
    
 @router.put('/put/{book_id}',response_model=BookResponce,tags=['post'])
-def ChangeInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int,book:BookResponce):
+def ChangeInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int,title:str=File(...),description:str=File(...),file:UploadFile=File(...)):
     user=token_obj.user
     bookid=db.query(Book).filter(Book.id==book_id,Book.author_id==user.id).first()
     if not bookid:
             raise HTTPException(
                 status_code=400,
                 detail='it is not your post or book not found')
-    bookid.title=book.title,
-    bookid.description=book.description,
-    bookid.image_url=book.image_url
+    firebase_url=uploadpic(file)
+    bookid.title=title,
+    bookid.description=description,
+    bookid.image_url=firebase_url
     db.commit()
     db.refresh(bookid)
     return bookid
