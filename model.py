@@ -47,3 +47,17 @@ class UserInn(BaseModel):
     email:str
     bio:str=Field(default=None, max_length=300)
     image_url:str
+class PublicUserResponse(BaseModel):
+    username: str
+    image_url: str | None = None
+    email: str | None = None
+    bio: str | None = None
+    posts: list = []
+    count_posts: int 
+    follower_count:int
+    following_count:int
+class PrivateUserResponse (BaseModel):
+    username:str
+    count_posts:int
+    follower_count:int
+    following_count:int

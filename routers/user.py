@@ -1,6 +1,6 @@
-from fastapi import APIRouter,Depends,HTTPException
+from fastapi import APIRouter,Depends,HTTPException,Form
 from depen import db_dependency
-from model import UserIn,Private,SessionResponse,UserInn
+from model import UserIn,Profile,SessionResponse,UserInn,PrivateUserResponse,PublicUserResponse
 from database import User,Token,Follower,Accounttype,Book
 from depen import token_checker
 from typing import Annotated
@@ -13,12 +13,36 @@ def profile(
 ):
     return token_obj.user
 
-@router.get('/search',response_model=UserIn,tags=['user'])
-def searchUser(token_obj:Annotated[Token,Depends(token_checker)],username:str,db:db_dependency):
-    token_obj=db.query(User).filter(User.username==username).first()
-    return token_obj
+@router.get('/search',response_model=PrivateUserResponse|PublicUserResponse, tags=['user'])
+def searchUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],username:str):
+    user=token_obj.user
+    post_counts = db.query(Book).filter(search.id == Book.author_id).count()
+    follower_count=db.query(Follower).filter(search.id==Follower.follower_id).count()
+    following_count=db.query(Follower).filter(search.id==Follower.following_id).count()
+    if user:
 
+     search=db.query(User).filter(User.username==username.strip()).first()
+     if not search:
+         raise HTTPException(status_code=404,detail="User not found")
+    
+    if search.account_type==Accounttype.PRIVATE_ACCOUNT:
+         return PrivateUserResponse(
+             username=search.username,
+             count_posts=post_counts,
+             follower_count=follower_count,
+             following_count=following_count
+         )
 
+    return PublicUserResponse(
+         username=search.username,
+         image_url=search.image_url,
+         email=search.email,
+         bio=search.bio,
+         posts=search.books,
+         count_posts=post_counts,
+         follower_count=follower_count,
+         following_count=following_count
+     )
 
 @router.post('/follow',tags=['user'])
 def Follow_user(token_obj:Annotated[Token,Depends(token_checker)],following_id:int,db:db_dependency):
@@ -83,27 +107,36 @@ def AccountType(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependen
 @router.get('profile/{user_id}',tags=['user'])
 def PrivateAccount(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,user_id:str):
     user=db.query(User).filter(User.id==user_id).first()  
+    follower_count=db.query(Follower).filter(user.id==Follower.follower_id).count()
+    following_count=db.query(Follower).filter(user.id==Follower.following_id).count()
+    post_counts = db.query(Book).filter(user.id == Book.author_id).count()
+
     if not user:
              raise HTTPException(
                  status_code=400,
                  detail='user not found'
              )   
     if user.account_type==Accounttype.PRIVATE_ACCOUNT:
-        postr=db.query(Book).filter(token_obj.user_id==Book.author_id).count()
-        return User(
-            username=user.username,
-            count_posts=postr            
-        )
-    if user.account_type==Accounttype.PUBLIC_ACCOUNT:  
+                return PrivateUserResponse(
+                    username=user.username,
+                    count_posts=post_counts,
+                    following_count=following_count,
+                    follower_count=following_count
+                )
+       
+    return PublicUserResponse(
+                username=user.username,
+                image_url=user.image_url,
+                email=user.email,
+                bio=user.bio,
+                posts=user.books,
+                count_posts=post_counts,
+                following_count=following_count,
+                follower_count=follower_count       
+            )
 
-        posts=db.query(Book).filter(Book.author_id==user.id).all()    
-    return User(
-            username=user.username,
-            image_url=posts,
-            email=user.email,
-            bio=user.bio,
-            posts=user.books
-        )
+
+
     
 # ------------- SESSION ---------------------
 @router.get('/sessions/all',tags=['Sessions'],response_model=list[SessionResponse])

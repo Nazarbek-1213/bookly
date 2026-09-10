@@ -122,7 +122,7 @@ def Logout(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)]):
        db.refresh(token_obj)
        return {"logged_out":True}
 
-@router.delete('/delete-account/{token_obj}',tags=['auth'])
+@router.delete('/delete-account',tags=['auth'])
 def Logout(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)]):
     user=token_obj.user
     db.delete(user)
@@ -131,13 +131,13 @@ def Logout(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)]):
         'messege':'account deleted successfully'
     }
 
-@router.put('/EditInfo/{token_obj}',tags=['auth'],response_model=UserIn)
-def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],username: str = Form(...),
+@router.put('/EditInfo',tags=['auth'],response_model=UserIn)
+async def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],username: str = Form(...),
     email: str = Form(...),
     bio: str = Form(None),
     file:UploadFile=File(None)):
     user=token_obj.user
-    firebase_url=uploadpic(file)
+    firebase_url= await uploadpic(file)
     user.username=username
     user.image_url=firebase_url
     user.email=email
@@ -146,10 +146,11 @@ def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],
     db.refresh(user)
     return user
 
-@router.patch('/change-password/{token_obj.user_id}',tags=['auth'])
+@router.patch('/change-password',tags=['auth'])
 def PasswordChange(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],password:Changepassword):
     user=token_obj.user
-    if not password.password==password.password2:
+    if user:
+     if not password.password==password.password2:
         raise HTTPException(
             status_code=400,
             detail='2 password should be same'

@@ -9,10 +9,10 @@ from typing import Annotated
 router=APIRouter(prefix='/post')
 
 @router.post('/post',response_model=BookResponce,tags=['post'])
-def SharePost(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,
+async def SharePost(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,
               title:str=File(...),description:str=File(...),file:UploadFile=File(...)):
     user=token_obj.user
-    firebase_url=uploadpic(file)
+    firebase_url=await uploadpic(file)
     posting=Book(
         title=title,
         description=description,
@@ -40,14 +40,14 @@ def DeletePost(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependenc
     }
    
 @router.put('/put/{book_id}',response_model=BookResponce,tags=['post'])
-def ChangeInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int,title:str=File(...),description:str=File(...),file:UploadFile=File(...)):
+async def ChangeInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int,title:str=File(...),description:str=File(...),file:UploadFile=File(...)):
     user=token_obj.user
     bookid=db.query(Book).filter(Book.id==book_id,Book.author_id==user.id).first()
     if not bookid:
             raise HTTPException(
                 status_code=400,
                 detail='it is not your post or book not found')
-    firebase_url=uploadpic(file)
+    firebase_url=await uploadpic(file)
     bookid.title=title,
     bookid.description=description,
     bookid.image_url=firebase_url

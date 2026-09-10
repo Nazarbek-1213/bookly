@@ -25,10 +25,10 @@ def CommentPost(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependen
     db.commit()
     return kom
 
-@router.delete('/delete/{comment_id}',tags=['review'])
-def deleteReview(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,comment_id:int):
+@router.delete('/delete/{book_id}',tags=['review'])
+def deleteReview(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int):
     user=token_obj.user
-    comment=db.query(Comment).filter(user.id==Comment.user_id,Comment.id==comment_id).first()
+    comment=db.query(Comment).filter(user.id==Comment.user_id,Comment.book_id==book_id).first()
     if not comment:
         raise HTTPException(
             status_code=400,
@@ -55,9 +55,9 @@ def deleteReview(token_obj:Annotated[Token,Depends(token_checker)],db:db_depende
      return comment_old
 
 @router.get('/see/comments',tags=['review'])
-def GetAll(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,user_id:int):
+def GetAll(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int):
      user=token_obj.user
-     comment=db.query(Comment).order_by(Comment.created_at.desc()).all()
+     comment=db.query(Comment).filter(Comment.book_book_id).order_by(Comment.created_at.desc()).all()
      if user:
           return comment
      raise HTTPException(

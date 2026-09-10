@@ -12,7 +12,7 @@ from firebase_admin import credentials,storage
 
 cred=credentials.Certificate('firebase-key.json')
 firebase_admin.initialize_app(cred,{
-           'storageBucket': 'bookly-8ee7d.appspot.com'
+           'storageBucket': 'reab-53b5d.firebasestorage.app'
 
 })
 bucket = storage.bucket()
