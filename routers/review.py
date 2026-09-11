@@ -27,8 +27,7 @@ def CommentPost(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependen
 
 @router.delete('/delete/{book_id}',tags=['review'])
 def deleteReview(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int):
-    user=token_obj.user
-    comment=db.query(Comment).filter(user.id==Comment.user_id,Comment.book_id==book_id).first()
+    comment=db.query(Comment).filter(token_obj.user_id==Comment.user_id,Comment.book_id==book_id).first()
     if not comment:
         raise HTTPException(
             status_code=400,
@@ -40,9 +39,8 @@ def deleteReview(token_obj:Annotated[Token,Depends(token_checker)],db:db_depende
     return comment
 
 @router.put('/edit/{comment_id}',tags=['review'])
-def deleteReview(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,comment_id:int,comment:Comments,book_id:int):
-     user=token_obj.user
-     comment_old=db.query(Comment).filter(user.id==Comment.user_id,Comment.id==comment_id,Comment.book_id==book_id).first()
+def EditReview(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,comment_id:int,comment:Comments,book_id:int):
+     comment_old=db.query(Comment).filter(token_obj.user_id==Comment.user_id,Comment.id==comment_id,Comment.book_id==book_id).first()
      if not comment_old:
             raise HTTPException(
                 status_code=400,
@@ -57,7 +55,7 @@ def deleteReview(token_obj:Annotated[Token,Depends(token_checker)],db:db_depende
 @router.get('/see/comments',tags=['review'])
 def GetAll(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int):
      user=token_obj.user
-     comment=db.query(Comment).filter(Comment.book_book_id).order_by(Comment.created_at.desc()).all()
+     comment=db.query(Comment).filter(Comment.book_id==book_id).order_by(Comment.created_at.desc()).all()
      if user:
           return comment
      raise HTTPException(
@@ -92,13 +90,7 @@ def LikePosts(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency
 
 @router.delete('/like/{book_id}',tags=['review'])
 def disLikePosts(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int):
-     user=token_obj.user
-     like=db.query(Like).filter(Like.book_id==book_id,Like.user_id==user.id).first()
-     if  not user:
-          raise HTTPException(
-               status_code=400,
-               detail='auth required'
-          )
+     like=db.query(Like).filter(Like.book_id==book_id,Like.user_id==token_obj.user_id).first()
      if not like:
           raise HTTPException(
                status_code=404,
@@ -106,8 +98,12 @@ def disLikePosts(token_obj:Annotated[Token,Depends(token_checker)],db:db_depende
           )
      db.delete(like)
      db.commit()
+@router.get('count/like/{book_id}',tags=['review'])
+def CountLike(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int):
+     like=db.query(Like).filter(book_id==Like.book_id).count()
+     return like
 
-     
+
 
      
 

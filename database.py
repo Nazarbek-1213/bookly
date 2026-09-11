@@ -4,13 +4,9 @@ from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime, timedelta
 import secrets
 from enum import Enum as Acount
-from dotenv import load_dotenv
-import os
 
-load_dotenv()
 
-engine = database_url = os.getenv("DATABASE_URL")
-
+engine = create_engine("postgresql://postgres:safarov2@localhost:5432/postgres")
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 

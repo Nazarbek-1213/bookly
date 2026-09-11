@@ -44,9 +44,11 @@ class SessionResponse(BaseModel):
     created_at:datetime
 class UserInn(BaseModel):
     username:str=Field(min_length=5)
-    email:str
     bio:str=Field(default=None, max_length=300)
     image_url:str
+    follower_count:int
+    following_count:int
+    post_count:int
 class PublicUserResponse(BaseModel):
     username: str
     image_url: str | None = None

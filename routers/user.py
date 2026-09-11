@@ -4,14 +4,25 @@ from model import UserIn,Profile,SessionResponse,UserInn,PrivateUserResponse,Pub
 from database import User,Token,Follower,Accounttype,Book
 from depen import token_checker
 from typing import Annotated
-
+from sqlalchemy import func
 router=APIRouter(prefix='/user')
 
 @router.get("/profile/me",tags=['user'],response_model=UserInn)
 def profile(
-    token_obj: Annotated[Token, Depends(token_checker)]
+    token_obj: Annotated[Token, Depends(token_checker)],db:db_dependency
 ):
-    return token_obj.user
+    follower_count=db.query(Follower).filter(token_obj.user_id==Follower.follower_id).count()
+    following_count=db.query(Follower).filter(token_obj.user_id==Follower.following_id).count()
+    post_count=db.query(Book).filter(token_obj.user_id==Book.author_id).count()
+    
+    return UserInn(
+         username=token_obj.username,
+         bio=token_obj.bio,
+         image_url=token_obj.url,
+         follower_count=follower_count,
+         following_count=following_count,
+         post_count=post_count
+    )
 
 @router.get('/search',response_model=PrivateUserResponse|PublicUserResponse, tags=['user'])
 def searchUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],username:str):
@@ -135,8 +146,34 @@ def PrivateAccount(token_obj:Annotated[Token,Depends(token_checker)],db:db_depen
                 follower_count=follower_count       
             )
 
+from fastapi import APIRouter, Depends
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
+router = APIRouter()
 
+@router.get("/top-followed")
+async def TopFollowed(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)]):
+    
+    
+    results = db.query(User.id,User.username,User.image_url,func.count(Follower.id).label('follower_count')).outerjoin(Follower,Follower.following_id == User.id).group_by(User.id).order_by(func.count(Follower.id).desc()).limit(10).all()
+    
+    if not results:
+        return {"users": []}
+    
+    return {
+        "users": [
+            {
+                "rank": idx + 1,
+                "user_id": r[0],
+                "username": r[1],
+                "image_url": r[2],
+                "followers": r[3]
+            }
+            for idx, r in enumerate(results)
+        ]
+    }
+     
     
 # ------------- SESSION ---------------------
 @router.get('/sessions/all',tags=['Sessions'],response_model=list[SessionResponse])
