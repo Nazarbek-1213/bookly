@@ -13,7 +13,7 @@ def CommentPost(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependen
     book=db.query(Book).filter(Book.id==books_id).first()
     if not book:
         raise HTTPException(
-            status_code=400,
+            status_code=403,
             detail='book not found'
         )
     kom=Comment(
@@ -56,12 +56,9 @@ def EditReview(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependenc
 def GetAll(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int):
      user=token_obj.user
      comment=db.query(Comment).filter(Comment.book_id==book_id).order_by(Comment.created_at.desc()).all()
-     if user:
+     if  comment:
           return comment
-     raise HTTPException(
-          detail='auth required',
-          status_code=400
-     )
+     return []
 
 # =============== LIKE ======================
 

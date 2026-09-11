@@ -146,12 +146,6 @@ def PrivateAccount(token_obj:Annotated[Token,Depends(token_checker)],db:db_depen
                 follower_count=follower_count       
             )
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import func
-from sqlalchemy.orm import Session
-
-router = APIRouter()
-
 @router.get("/top-followed")
 async def TopFollowed(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)]):
     

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookly — Kitob Sharing Platform</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- LOGIN PAGE -->
+    <div id="loginPage" class="page active">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-logo">📚 Bookly</div>
+                <p class="login-subtitle">Kitobni sevgi bilan o'qing</p>
+
+                <form id="loginForm" class="login-form">
+                    <div class="form-group">
+                        <label for="loginUsername">Username</label>
+                        <input type="text" id="loginUsername" placeholder="@username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Parol</label>
+                        <input type="password" id="loginPassword" placeholder="••••••" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Kirish</button>
+                </form>
+
+                <p class="toggle-link">Akkaunt yo'qmi? <a href="#" onclick="togglePage('registerPage')">Ro'yxatdan o'tish</a></p>
+
+                <div id="loginError" class="error-message" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- REGISTER PAGE -->
+    <div id="registerPage" class="page">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-logo">📚 Bookly</div>
+                <p class="login-subtitle">Jamiyamizga qo'shiling</p>
+
+                <form id="registerForm" class="login-form">
+                    <div class="form-group">
+                        <label for="regName">To'liq isim</label>
+                        <input type="text" id="regName" placeholder="Isim Familiya" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regUsername">Username</label>
+                        <input type="text" id="regUsername" placeholder="@username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regEmail">Email</label>
+                        <input type="email" id="regEmail" placeholder="email@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regPassword">Parol</label>
+                        <input type="password" id="regPassword" placeholder="••••••" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Ro'yxatdan o'tish</button>
+                </form>
+
+                <p class="toggle-link">Akkaunt bor? <a href="#" onclick="togglePage('loginPage')">Kirish</a></p>
+
+                <div id="registerError" class="error-message" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HOME PAGE -->
+    <div id="homePage" class="page">
+        <!-- NAVBAR -->
+        <nav class="navbar">
+            <div class="navbar-container">
+                <div class="navbar-logo">📚 Bookly</div>
+                <ul class="navbar-menu">
+                    <li><a href="#" class="nav-link active">🏠 Bosh</a></li>
+                    <li><a href="#" class="nav-link">🔥 Mashhur</a></li>
+                    <li><a href="#" class="nav-link">👥 Following</a></li>
+                    <li><a href="#" class="nav-link">📚 Kitoblar</a></li>
+                    <li><a href="#" class="nav-link">🔔 Bildirishnomalar</a></li>
+                    <li><a href="#" class="nav-link">👤 Profil</a></li>
+                    <li><a href="#" class="nav-link" id="logoutBtn">🚪 Chiqish</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <div class="container">
+            <!-- LEFT SIDEBAR - FOLLOWING -->
+            <aside class="sidebar-left">
+                <div class="sidebar-title">👥 Following</div>
+                <div id="followingList" class="following-list">
+                    <!-- Dinamik qo'shilib turadi -->
+                </div>
+            </aside>
+
+            <!-- MAIN FEED -->
+            <main class="main-feed">
+                <!-- POST YARATISH -->
+                <div class="create-post-card">
+                    <div class="create-post-header">
+                        <div class="user-avatar" id="currentUserAvatar">U</div>
+                        <input type="text" id="postTitle" placeholder="Kitob sarlavhasi..." class="create-input">
+                    </div>
+                    <textarea id="postDescription" placeholder="Bu kitob haqida nima deb o'ylaysiz?" class="create-textarea"></textarea>
+                    <div class="create-post-actions">
+                        <input type="file" id="postImage" accept="image/*" style="display:none;">
+                        <button class="btn-secondary" onclick="document.getElementById('postImage').click()">📷 Rasm</button>
+                        <button class="btn-primary" id="publishBtn">📤 Yuborish</button>
+                    </div>
+                </div>
+
+                <!-- POSTS FEED -->
+                <div id="feedContainer" class="feed-container">
+                    <!-- Dinamik qo'shilib turadi -->
+                </div>
+            </main>
+
+            <!-- RIGHT SIDEBAR - RECOMMENDATIONS -->
+            <aside class="sidebar-right">
+                <div class="sidebar-title">👥 Takliflar</div>
+                <div id="recommendationsList" class="recommendations-list">
+                    <!-- Dinamik qo'shilib turadi -->
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- POST MODAL -->
+    <div id="postModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <div id="modalPostContent"></div>
+            <div id="modalComments" class="comments-section"></div>
+            <div class="comment-input-section">
+                <input type="text" id="commentInput" placeholder="Sharh yozing..." class="comment-input">
+                <button class="btn-primary" id="submitCommentBtn">Yuborish</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
