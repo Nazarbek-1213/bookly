@@ -13,7 +13,10 @@ Base = declarative_base()
 class Accounttype(Acount):
     PRIVATE_ACCOUNT = "private_account"
     PUBLIC_ACCOUNT = "public_account"
-
+class FollowRequest(Acount):
+    REQUESTED='requested'
+    ACCEPTED='accepted'
+    REJECTED='rejected'
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
@@ -85,9 +88,10 @@ class Follower(Base):
     follower_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     following_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     created_at = Column(DateTime, default=datetime.now())
-    
+    status=Column(Enum(FollowRequest),default=FollowRequest.ACCEPTED)
+
+
     follower_user = relationship("User", foreign_keys=[follower_id], back_populates="following_rel")
     following_user = relationship("User", foreign_keys=[following_id], back_populates="followers_rel")
 
 Base.metadata.create_all(engine)
-

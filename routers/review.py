@@ -54,7 +54,6 @@ def EditReview(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependenc
 
 @router.get('/see/comments',tags=['review'])
 def GetAll(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int):
-     user=token_obj.user
      comment=db.query(Comment).filter(Comment.book_id==book_id).order_by(Comment.created_at.desc()).all()
      if  comment:
           return comment

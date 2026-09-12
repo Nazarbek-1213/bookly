@@ -2,6 +2,7 @@ from pydantic import BaseModel,Field,field_validator
 from enum import Enum as PyEnum
 from datetime import datetime
 from fastapi import UploadFile
+from database import Base
 class Accounttype(PyEnum):
     PRIVATE_ACCOUNT = "private_account"
     PUBLIC_ACCOUNT = "public_account"
@@ -49,6 +50,7 @@ class UserInn(BaseModel):
     follower_count:int
     following_count:int
     post_count:int
+    account_type:str
 class PublicUserResponse(BaseModel):
     username: str
     image_url: str | None = None
