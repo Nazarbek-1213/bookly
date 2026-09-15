@@ -5,7 +5,18 @@ from routers.posting import router as posting_router
 from routers.review import router as review_router
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
+from fastapi.staticfiles import StaticFiles
    
+import os
+from fastapi.staticfiles import StaticFiles
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+app.mount(
+    "/uploads",
+    StaticFiles(directory=os.path.join(BASE_DIR, "uploads")),
+    name="uploads"
+)
 
 app.add_middleware(
        CORSMiddleware,

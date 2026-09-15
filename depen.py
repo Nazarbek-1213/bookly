@@ -58,7 +58,7 @@ async def uploadpic (file:UploadFile):
     unique_filename=f'{uuid.uuid4()}.{file_ext}'
     upload_path = os.path.join(UPLOAD_DIR, unique_filename)
     contents = await file.read()
-    async with aiofiles.open(original_filename, 'wb') as f:
+    async with aiofiles.open(upload_path, 'wb') as f:
      await f.write(contents)
     link = f"/uploads/{unique_filename}"    
     return link

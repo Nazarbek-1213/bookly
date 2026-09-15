@@ -22,8 +22,18 @@ def profile(
          follower_count=follower_count,
          following_count=following_count,
          post_count=post_count,
-         account_type=user.account_type
-    )
+         account_type=user.account_type,
+         posts=[
+            {    'id':book.id,
+                 'title':book.title,
+                 'description':book.description,
+                 'image_url':book.image_url,
+                 'author_id':book.author_id
+                 
+            }
+            for book in user.books
+         ]
+           )
 
 @router.get('/search',response_model=PrivateUserResponse|PublicUserResponse, tags=['user'])
 def searchUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],username:str):

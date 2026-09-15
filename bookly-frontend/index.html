@@ -1,78 +1,49 @@
 <!DOCTYPE html>
 <html lang="uz">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bookgram</title>
-<link rel="stylesheet" href="bookly-style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bookgram</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Grand+Hotel&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ============ AUTH ============ -->
-<div id="auth" class="hidden">
-  <div class="auth-box">
-    <div class="card">
-      <div class="logo">Bookgram</div>
+  <!-- Login / Register -->
+  <section id="auth-screen" class="auth-screen" hidden></section>
 
-      <form id="loginForm">
-        <input name="username" placeholder="Foydalanuvchi nomi" required autocomplete="username">
-        <input name="password" type="password" placeholder="Parol" required autocomplete="current-password">
-        <button class="btn" type="submit">Kirish</button>
-        <div class="err" id="loginErr"></div>
-      </form>
+  <!-- App layout -->
+  <div id="layout" class="layout" hidden>
+    <nav id="sidebar" class="sidebar" aria-label="Asosiy menyu">
+      <a class="logo" href="#/">Bookgram</a>
+      <div class="nav-list">
+        <a class="nav-item" href="#/" data-route="/" title="Bosh sahifa">
+          <span class="nav-icon" data-icon="home"></span><span class="nav-label">Bosh sahifa</span>
+        </a>
+        <a class="nav-item" href="#/search" data-route="/search" title="Qidiruv">
+          <span class="nav-icon" data-icon="search"></span><span class="nav-label">Qidiruv</span>
+        </a>
+        <button class="nav-item" type="button" data-action="open-create" title="Yaratish">
+          <span class="nav-icon" data-icon="plus"></span><span class="nav-label">Yaratish</span>
+        </button>
+        <a class="nav-item" href="#/profile" data-route="/profile" title="Profil">
+          <span class="nav-icon"><img id="nav-avatar" class="avatar avatar-24" alt="Profil" src=""></span><span class="nav-label">Profil</span>
+        </a>
+      </div>
+      <div class="nav-list nav-bottom">
+        <a class="nav-item" href="#/settings" data-route="/settings" title="Sozlamalar">
+          <span class="nav-icon" data-icon="settings"></span><span class="nav-label">Sozlamalar</span>
+        </a>
+      </div>
+    </nav>
 
-      <form id="regForm" class="hidden">
-        <input name="username" placeholder="Foydalanuvchi nomi" required>
-        <input name="email" type="email" placeholder="Email" required>
-        <input name="bio" placeholder="Bio (ixtiyoriy)">
-        <input name="password" type="password" placeholder="Parol" required>
-        <input name="password2" type="password" placeholder="Parolni takrorlang" required>
-        <div class="filepick">
-          <img id="regPreview" class="avatar" width="40" height="40" src="">
-          <label>Profil rasmi tanlash<input name="file" type="file" accept="image/*"></label>
-        </div>
-        <button class="btn" type="submit">Ro'yxatdan o'tish</button>
-        <div class="err" id="regErr"></div>
-      </form>
-    </div>
-    <div class="card switch">
-      <span id="switchText">Akkauntingiz yo'qmi?</span>
-      <button class="btn link" id="switchBtn">Ro'yxatdan o'tish</button>
-    </div>
+    <main id="page" class="page"></main>
   </div>
-</div>
 
-<!-- ============ APP ============ -->
-<div id="app" class="hidden">
-  <nav class="sidebar">
-    <div class="logo">Bookgram</div>
-    <div class="nav">
-      <a href="#/" data-route="/">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Bosh sahifa</span>
-      </a>
-      <a href="#/search" data-route="/search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Qidiruv</span>
-      </a>
-      <button id="navCreate">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg><span>Yaratish</span>
-      </button>
-      <a href="#/profile" data-route="/profile">
-        <img id="navAvatar" class="avatar" width="24" height="24" src=""><span>Profil</span>
-      </a>
-    </div>
-    <div class="spacer"></div>
-    <div class="nav nav-bottom">
-      <a href="#/settings" data-route="/settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Sozlamalar</span>
-      </a>
-    </div>
-  </nav>
-  <main><div class="content" id="view"></div></main>
-</div>
+  <div id="modal-root"></div>
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
 
-<div id="modals"></div>
-<div class="toast" id="toast"></div>
-
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

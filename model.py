@@ -35,9 +35,11 @@ class Changepassword(BaseModel):
     password2:str=Field(min_length=8, max_length=29)
     old_password:str
 class BookResponce(BaseModel):
+    id:int
     title:str
     description:str
     image_url:str
+    author_id:int
 class Comments(BaseModel):
     text:str
 class SessionResponse(BaseModel):
@@ -46,11 +48,12 @@ class SessionResponse(BaseModel):
 class UserInn(BaseModel):
     username:str=Field(min_length=5)
     bio:str=Field(default=None, max_length=300)
-    image_url:str
+    image_url:str| None=None
     follower_count:int
     following_count:int
     post_count:int
     account_type:str
+    posts:list=[BookResponce]
 class PublicUserResponse(BaseModel):
     username: str
     image_url: str | None = None
