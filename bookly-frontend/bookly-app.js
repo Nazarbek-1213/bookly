@@ -1,533 +1,353 @@
-// BOOKLY FRONTEND - MAIN APPLICATION
+// Bookly Service Worker - Handles push notifications and background sync
+const API_BASE_URL = 'https://api.bookly.example.com';
 
-let currentUser = null;
-let currentPostId = null;
+// Handle push notifications
+self.addEventListener('push', (event) => {
+  console.log('Push notification received:', event);
 
-// ===== PAGE TOGGLE =====
-function togglePage(pageName) {
-    document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
-    document.getElementById(pageName).classList.add('active');
-}
+  if (!event.data) {
+    console.log('No data in push notification');
+    return;
+  }
 
-// ===== AUTHENTICATION =====
+  let notificationData = {};
+  try {
+    notificationData = event.data.json();
+  } catch (e) {
+    notificationData = {
+      title: 'Bookly',
+      body: event.data.text(),
+    };
+  }
 
-// LOGIN FORM
-document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  const {
+    type = 'default',
+    title = 'Bookly',
+    body = 'You have a new notification',
+    icon = '/bookly-icon.png',
+    badge = '/bookly-badge.png',
+    data = {},
+    tag = 'bookly-notification',
+    actions = [],
+  } = notificationData;
 
-    const username = document.getElementById('loginUsername').value;
-    const password = document.getElementById('loginPassword').value;
-    const errorDiv = document.getElementById('loginError');
+  // Build actions based on notification type
+  let notificationActions = actions;
+  if (type === 'follow_request') {
+    notificationActions = [
+      { action: 'accept', title: 'Accept', icon: '/accept-icon.png' },
+      { action: 'reject', title: 'Reject', icon: '/reject-icon.png' },
+    ];
+  } else if (type === 'followed') {
+    notificationActions = [
+      { action: 'view_profile', title: 'View Profile', icon: '/profile-icon.png' },
+    ];
+  }
 
-    try {
-        const data = await API.login(username, password);
+  const options = {
+    body,
+    icon,
+    badge,
+    tag,
+    data: {
+      type,
+      ...data,
+      timestamp: Date.now(),
+    },
+    actions: notificationActions,
+    badge: badge,
+    requireInteraction: type === 'follow_request', // Keep follow requests visible until acted upon
+    vibrate: [200, 100, 200],
+    sound: '/notification-sound.mp3',
+  };
 
-        if (data.token) {
-            currentUser = data;
-            document.getElementById('currentUserAvatar').textContent = username[0].toUpperCase();
-            togglePage('homePage');
-            await loadHome();
-            document.getElementById('loginForm').reset();
-        } else {
-            errorDiv.textContent = data.detail || 'Login xatosi';
-            errorDiv.style.display = 'block';
-        }
-    } catch (error) {
-        errorDiv.textContent = 'Server bilan bog\'lanish xatosi';
-        errorDiv.style.display = 'block';
-    }
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
 });
 
-// REGISTER FORM
-document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
+// Handle notification clicks
+self.addEventListener('notificationclick', (event) => {
+  console.log('Notification clicked:', event.notification.tag, event.action);
 
-    const name = document.getElementById('regName').value;
-    const username = document.getElementById('regUsername').value;
-    const email = document.getElementById('regEmail').value;
-    const bio = document.getElementById('regBio').value;
-    const password = document.getElementById('regPassword').value;
-    const password2 = document.getElementById('regPassword2').value;
-    const file = document.getElementById('regFile').files[0];
-    const errorDiv = document.getElementById('registerError');
+  const notification = event.notification;
+  const { type, userId, fromUserId } = notification.data;
 
-    if (password !== password2) {
-        errorDiv.textContent = 'Parollar bir xil bo\'lishi kerak!';
-        errorDiv.style.display = 'block';
-        return;
-    }
+  event.notification.close();
 
-    try {
-        const data = await API.register(username, email, bio, password, password2, file);
-
-        if (data.id || data.user_id) {
-            errorDiv.textContent = '✅ Ro\'yxatdan muvaffaqiyat o\'tdingiz! Endi kirish qiling.';
-            errorDiv.style.color = 'var(--success)';
-            errorDiv.style.display = 'block';
-            document.getElementById('registerForm').reset();
-            setTimeout(() => togglePage('loginPage'), 2000);
-        } else {
-            errorDiv.textContent = data.detail || 'Ro\'yxatdan o\'tishda xato';
-            errorDiv.style.display = 'block';
-        }
-    } catch (error) {
-        errorDiv.textContent = 'Server bilan bog\'lanish xatosi';
-        errorDiv.style.display = 'block';
-    }
-});
-
-// LOGOUT
-function setupLogoutButtons() {
-    const logoutButtons = document.querySelectorAll('#logoutBtn, #logoutBtn2');
-    logoutButtons.forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            try {
-                await API.logout();
-                currentUser = null;
-                togglePage('loginPage');
-                document.getElementById('loginForm').reset();
-            } catch (error) {
-                console.error('Logout error:', error);
+  // Handle action button clicks
+  if (event.action === 'accept') {
+    event.waitUntil(
+      handleFollowRequestAction(fromUserId, 'accept')
+        .then(() => notifyUser('Follow request accepted!'))
+        .catch(err => console.error('Accept error:', err))
+    );
+  } else if (event.action === 'reject') {
+    event.waitUntil(
+      handleFollowRequestAction(fromUserId, 'reject')
+        .then(() => notifyUser('Follow request rejected'))
+        .catch(err => console.error('Reject error:', err))
+    );
+  } else if (event.action === 'view_profile' || type === 'followed') {
+    // Open profile page
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then(clientList => {
+          // Check if window already exists
+          for (let client of clientList) {
+            if (client.url === '/' && 'focus' in client) {
+              client.focus();
+              // Send message to load profile
+              client.postMessage({
+                type: 'LOAD_PROFILE',
+                userId: fromUserId,
+              });
+              return;
             }
-        });
-    });
-}
-
-// ===== HOME PAGE LOAD =====
-async function loadHome() {
-    setupLogoutButtons();
-    await loadFeed();
-    await loadMyFollowing();
-    await loadRecommendations();
-}
-
-// ===== LOAD FEED =====
-async function loadFeed() {
-    try {
-        const data = await API.getFeed();
-        const posts = data || [];
-        const feedContainer = document.getElementById('feedContainer');
-        feedContainer.innerHTML = '';
-
-        if (!posts || posts.length === 0) {
-            feedContainer.innerHTML = '<p style="text-align: center; color: var(--text-gray);">Hali postlar yo\'q</p>';
-            return;
-        }
-
-        posts.forEach(post => {
-            const postElement = createPostCard(post);
-            feedContainer.appendChild(postElement);
-        });
-    } catch (error) {
-        console.error('Error loading feed:', error);
-    }
-}
-
-// CREATE POST CARD
-function createPostCard(post) {
-    const card = document.createElement('div');
-    card.className = 'post-card';
-
-    const createdDate = new Date(post.created_at);
-    const timeAgo = getTimeAgo(createdDate);
-
-    card.innerHTML = `
-        <div class="post-header">
-            <div class="post-user">
-                <div class="user-avatar">${post.author?.username?.[0]?.toUpperCase() || 'U'}</div>
-                <div class="post-user-info">
-                    <div class="post-username">${post.author?.username || 'Unknown'}</div>
-                    <div class="post-time">${timeAgo}</div>
-                </div>
-            </div>
-        </div>
-        <div class="post-image">${post.image_url ? `<img src="${API.API_BASE_URL}${post.image_url}">` : '📖'}</div>
-        <div class="post-content">
-            <div class="post-title">${post.title}</div>
-            <div class="post-description">${post.description}</div>
-            <div class="post-actions">
-                <button class="action-btn" onclick="toggleLike(${post.id})">
-                    ❤️ <span class="like-count">${post.likes_count || 0}</span>
-                </button>
-                <button class="action-btn" onclick="openPostModal(${post.id})">
-                    💬 <span class="comment-count">${post.comments_count || 0}</span>
-                </button>
-            </div>
-        </div>
-    `;
-
-    return card;
-}
-
-// TIME AGO HELPER
-function getTimeAgo(date) {
-    const now = new Date();
-    const seconds = Math.floor((now - date) / 1000);
-
-    if (seconds < 60) return `${seconds} sekund oldin`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} minut oldin`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} soat oldin`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days} kun oldin`;
-    return date.toLocaleDateString('uz-UZ');
-}
-
-// ===== LIKE TOGGLE =====
-async function toggleLike(postId) {
-    try {
-        await API.likePost(postId);
-        await loadFeed();
-    } catch (error) {
-        console.error('Error toggling like:', error);
-        // Agar already liked bo'lsa, unlike qilish
-        try {
-            await API.unlikePost(postId);
-            await loadFeed();
-        } catch (err) {
-            console.error('Error unliking:', err);
-        }
-    }
-}
-
-// ===== PUBLISH POST =====
-document.getElementById('publishBtn')?.addEventListener('click', async () => {
-    const title = document.getElementById('postTitle').value;
-    const description = document.getElementById('postDescription').value;
-    const imageFile = document.getElementById('postImage').files[0];
-
-    if (!title || !description) {
-        alert('Sarlavha va tavsifni to\'ldiring!');
-        return;
-    }
-
-    if (!imageFile) {
-        alert('Rasm yuklang!');
-        return;
-    }
-
-    try {
-        await API.createPost(title, description, imageFile);
-        document.getElementById('postTitle').value = '';
-        document.getElementById('postDescription').value = '';
-        document.getElementById('postImage').value = '';
-        await loadFeed();
-        alert('✅ Post yuborildi!');
-    } catch (error) {
-        alert('❌ Xato: ' + error.message);
-    }
+          }
+          // Open new window if not found
+          if (clients.openWindow) {
+            return clients.openWindow(`/?profile=${fromUserId}`);
+          }
+        })
+    );
+  } else {
+    // Default: open app
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then(clientList => {
+          for (let client of clientList) {
+            if (client.url === '/' && 'focus' in client) {
+              return client.focus();
+            }
+          }
+          if (clients.openWindow) {
+            return clients.openWindow('/');
+          }
+        })
+    );
+  }
 });
 
-// ===== LOAD MY FOLLOWING =====
-async function loadMyFollowing() {
-    try {
-        const data = await API.getMyFollowersList();
-        const followingList = document.getElementById('followingList');
-        followingList.innerHTML = '';
-
-        if (!data || !data.followers) {
-            followingList.innerHTML = '<p style="color: var(--text-gray); font-size: 12px;">Following yo\'q</p>';
-            return;
-        }
-
-        // Agarda object bo'lsa va 'followers' key bor
-        const followers = Array.isArray(data) ? data : (data.followers || []);
-
-        followers.slice(0, 6).forEach(user => {
-            const userElement = document.createElement('div');
-            userElement.className = 'following-item';
-            userElement.innerHTML = `
-                <div class="user-avatar">${user.username?.[0]?.toUpperCase() || 'U'}</div>
-                <div class="following-info">
-                    <div class="following-name">${user.name || user.username}</div>
-                    <div class="following-status">🟢 Online</div>
-                </div>
-            `;
-            followingList.appendChild(userElement);
-        });
-    } catch (error) {
-        console.error('Error loading following:', error);
-    }
-}
-
-// ===== LOAD RECOMMENDATIONS =====
-async function loadRecommendations() {
-    try {
-        const data = await API.getTopFollowed();
-        const recommendations = data.users || [];
-        const recList = document.getElementById('recommendationsList');
-        recList.innerHTML = '';
-
-        recommendations.slice(0, 5).forEach(user => {
-            const recElement = document.createElement('div');
-            recElement.className = 'recommendation-item';
-            recElement.innerHTML = `
-                <div class="user-avatar">${user.username?.[0]?.toUpperCase() || 'U'}</div>
-                <div class="rec-info">
-                    <div class="rec-name">${user.username}</div>
-                    <div class="rec-username">👥 ${user.followers} followers</div>
-                </div>
-                <button class="rec-btn" onclick="toggleFollow(${user.user_id}, this)">Follow</button>
-            `;
-            recList.appendChild(recElement);
-        });
-    } catch (error) {
-        console.error('Error loading recommendations:', error);
-    }
-}
-
-// ===== FOLLOW TOGGLE =====
-async function toggleFollow(userId, button) {
-    try {
-        if (button.textContent === 'Follow') {
-            await API.followUser(userId);
-            button.textContent = 'Following';
-            button.classList.add('following');
-        } else {
-            await API.unfollowUser(userId);
-            button.textContent = 'Follow';
-            button.classList.remove('following');
-        }
-    } catch (error) {
-        console.error('Error toggling follow:', error);
-    }
-}
-
-// ===== POST MODAL =====
-async function openPostModal(postId) {
-    currentPostId = postId;
-    const modal = document.getElementById('postModal');
-    const modalContent = document.getElementById('modalPostContent');
-    const modalComments = document.getElementById('modalComments');
-
-    try {
-        const feed = await API.getFeed();
-        const post = feed.find(p => p.id === postId);
-
-        if (post) {
-            const timeAgo = getTimeAgo(new Date(post.created_at));
-            modalContent.innerHTML = `
-                <div class="post-header">
-                    <div class="post-user">
-                        <div class="user-avatar">${post.author?.username?.[0]?.toUpperCase() || 'U'}</div>
-                        <div class="post-user-info">
-                            <div class="post-username">${post.author?.username}</div>
-                            <div class="post-time">${timeAgo}</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="post-image">${post.image_url ? `<img src="${API.API_BASE_URL}${post.image_url}">` : '📖'}</div>
-                <div class="post-content">
-                    <div class="post-title">${post.title}</div>
-                    <div class="post-description">${post.description}</div>
-                    <div class="post-actions">
-                        <button class="action-btn" onclick="toggleLike(${post.id})">❤️ ${post.likes_count || 0}</button>
-                        <button class="action-btn">💬 ${post.comments_count || 0}</button>
-                    </div>
-                </div>
-            `;
-        }
-
-        const commentsData = await API.getComments(postId);
-        const comments = Array.isArray(commentsData) ? commentsData : (commentsData.comments || []);
-        modalComments.innerHTML = '<h3>💬 Sharhlar</h3>';
-
-        comments.forEach(comment => {
-            const commentEl = document.createElement('div');
-            commentEl.className = 'comment-item';
-            const commentDate = new Date(comment.created_at);
-            const commentTime = getTimeAgo(commentDate);
-            commentEl.innerHTML = `
-                <div class="comment-user">${comment.user?.username || 'Unknown'}</div>
-                <div class="comment-text">${comment.text}</div>
-                <div class="comment-time">${commentTime}</div>
-            `;
-            modalComments.appendChild(commentEl);
-        });
-    } catch (error) {
-        console.error('Error loading post:', error);
-    }
-
-    modal.style.display = 'flex';
-}
-
-// CLOSE MODAL
-document.querySelectorAll('.modal-close').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        e.target.closest('.modal').style.display = 'none';
-    });
+// Handle notification close
+self.addEventListener('notificationclose', (event) => {
+  console.log('Notification closed:', event.notification.tag);
+  // Optional: track notification dismissals
+  const { type, userId } = event.notification.data;
+  // Could send analytics here
 });
 
-document.querySelectorAll('.modal').forEach(modal => {
-    modal.addEventListener('click', (e) => {
-        if (e.target.id && e.target.id.includes('Modal')) {
-            e.target.style.display = 'none';
-        }
-    });
-});
+// Handle follow request accept/reject
+async function handleFollowRequestAction(userId, action) {
+  try {
+    // Get token from IndexedDB or localStorage
+    const token = await getAuthToken();
 
-// ADD COMMENT
-document.getElementById('submitCommentBtn')?.addEventListener('click', async () => {
-    const text = document.getElementById('commentInput').value;
+    const endpoint = action === 'accept'
+      ? `/user/follow-request/${userId}/accept`
+      : `/user/follow-request/${userId}/reject`;
 
-    if (!text.trim()) {
-        alert('Sharh yozing!');
-        return;
-    }
-
-    try {
-        await API.addComment(currentPostId, text);
-        document.getElementById('commentInput').value = '';
-        await openPostModal(currentPostId);
-    } catch (error) {
-        alert('❌ Xato: ' + error.message);
-    }
-});
-
-// ===== PROFILE PAGE =====
-
-async function loadProfile() {
-    setupLogoutButtons();
-    try {
-        const profile = await API.getMyProfile();
-        const username = profile.username || 'User';
-
-        document.getElementById('profileAvatar').textContent = username[0].toUpperCase();
-        document.getElementById('profileUsername').textContent = username;
-        document.getElementById('profileBio').textContent = profile.bio || 'Bio yo\'q';
-        document.getElementById('profilePosts').textContent = profile.post_count || 0;
-        document.getElementById('profileFollowers').textContent = profile.follower_count || 0;
-        document.getElementById('profileFollowing').textContent = profile.following_count || 0;
-
-        // Load my posts
-        const feed = await API.getFeed();
-        const myPosts = feed.filter(post => post.author?.username === username);
-
-        const myPostsContainer = document.getElementById('myPostsContainer');
-        myPostsContainer.innerHTML = '';
-
-        if (myPosts.length === 0) {
-            myPostsContainer.innerHTML = '<p style="text-align: center; color: var(--text-gray);">Hali postlar yo\'q</p>';
-        } else {
-            myPosts.forEach(post => {
-                const postCard = createPostCard(post);
-                myPostsContainer.appendChild(postCard);
-            });
-        }
-    } catch (error) {
-        console.error('Error loading profile:', error);
-    }
-}
-
-// Edit Profile Modal
-document.getElementById('editProfileBtn')?.addEventListener('click', async () => {
-    try {
-        const profile = await API.getMyProfile();
-        document.getElementById('editUsername').value = profile.username;
-        document.getElementById('editEmail').value = profile.email || '';
-        document.getElementById('editBio').value = profile.bio || '';
-        document.getElementById('editModal').style.display = 'flex';
-    } catch (error) {
-        console.error('Error loading profile:', error);
-    }
-});
-
-// Edit Profile Form
-document.getElementById('editProfileForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    try {
-        const username = document.getElementById('editUsername').value;
-        const email = document.getElementById('editEmail').value;
-        const bio = document.getElementById('editBio').value;
-        const file = document.getElementById('editFile').files[0];
-
-        await API.editProfile(username, email, bio, file);
-        document.getElementById('editModal').style.display = 'none';
-        await loadProfile();
-        alert('✅ Profil yangilandi!');
-    } catch (error) {
-        alert('❌ Xato: ' + error.message);
-    }
-});
-
-// Change Password Modal
-document.getElementById('changePasswordBtn')?.addEventListener('click', () => {
-    document.getElementById('passwordModal').style.display = 'flex';
-});
-
-// Change Password Form
-document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    try {
-        const oldPassword = document.getElementById('oldPassword').value;
-        const newPassword = document.getElementById('newPassword').value;
-        const newPassword2 = document.getElementById('newPassword2').value;
-
-        if (newPassword !== newPassword2) {
-            alert('Yangi parollar bir xil bo\'lishi kerak!');
-            return;
-        }
-
-        await API.changePassword(oldPassword, newPassword, newPassword2);
-        document.getElementById('passwordModal').style.display = 'none';
-        alert('✅ Parol o\'zgartirildi!');
-    } catch (error) {
-        alert('❌ Xato: ' + error.message);
-    }
-});
-
-// Toggle Account Type
-document.getElementById('toggleAccountBtn')?.addEventListener('click', async () => {
-    try {
-        await API.toggleAccountType();
-        await loadProfile();
-        alert('✅ Akkaunt turi o\'zgartirildi!');
-    } catch (error) {
-        alert('❌ Xato: ' + error.message);
-    }
-});
-
-// Load Top Users Page
-async function loadTopUsers() {
-    setupLogoutButtons();
-    togglePage('homePage');
-    try {
-        const data = await API.getTopFollowed();
-        const topUsers = data.users || [];
-        const feedContainer = document.getElementById('feedContainer');
-        feedContainer.innerHTML = '<h2>🔥 Eng mashhur userlar</h2>';
-
-        topUsers.forEach(user => {
-            const userCard = document.createElement('div');
-            userCard.className = 'recommendation-item';
-            userCard.style.marginBottom = '12px';
-            userCard.innerHTML = `
-                <div class="user-avatar">${user.username?.[0]?.toUpperCase() || 'U'}</div>
-                <div class="rec-info">
-                    <div class="rec-name">${user.username}</div>
-                    <div class="rec-username">👥 ${user.followers} followers</div>
-                </div>
-                <button class="rec-btn" onclick="toggleFollow(${user.user_id}, this)">Follow</button>
-            `;
-            feedContainer.appendChild(userCard);
-        });
-    } catch (error) {
-        console.error('Error loading top users:', error);
-    }
-}
-
-// Profile page toggle handler
-document.addEventListener('DOMContentLoaded', () => {
-    const observer = new MutationObserver(() => {
-        const profilePage = document.getElementById('profilePage');
-        if (profilePage && profilePage.classList.contains('active')) {
-            loadProfile();
-        }
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
     });
 
-    observer.observe(document.body, { attributes: true, subtree: true });
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+
+    console.log(`Follow request ${action} successful`);
+    return response.json();
+  } catch (error) {
+    console.error('Error handling follow request action:', error);
+    throw error;
+  }
+}
+
+// Retrieve auth token from storage
+async function getAuthToken() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('bookly');
+
+    request.onerror = () => reject(request.error);
+    request.onupgradeneeded = () => {
+      // If DB doesn't exist, token won't be there
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      try {
+        const tx = db.transaction('auth', 'readonly');
+        const store = tx.objectStore('auth');
+        const getReq = store.get('token');
+
+        getReq.onsuccess = () => {
+          resolve(getReq.result?.token || localStorage.getItem('booklyToken'));
+        };
+        getReq.onerror = () => {
+          resolve(localStorage.getItem('booklyToken'));
+        };
+      } catch (e) {
+        // Fall back to localStorage
+        resolve(localStorage.getItem('booklyToken'));
+      }
+    };
+  });
+}
+
+// Helper to notify user in background
+function notifyUser(message) {
+  return self.registration.showNotification('Bookly', {
+    body: message,
+    tag: 'bookly-toast',
+    requireInteraction: false,
+  });
+}
+
+// Handle background sync (for follow/unfollow when offline)
+self.addEventListener('sync', (event) => {
+  console.log('Background sync event:', event.tag);
+
+  if (event.tag === 'bookly-follow-sync') {
+    event.waitUntil(
+      syncPendingFollows()
+    );
+  } else if (event.tag === 'bookly-post-sync') {
+    event.waitUntil(
+      syncPendingPosts()
+    );
+  }
 });
 
-console.log('✅ Bookly Frontend loaded!');
+async function syncPendingFollows() {
+  try {
+    const token = await getAuthToken();
+    const pendingFollows = JSON.parse(localStorage.getItem('pendingFollows') || '[]');
+
+    for (const follow of pendingFollows) {
+      const response = await fetch(`${API_BASE_URL}/user/${follow.userId}/follow`, {
+        method: follow.action === 'follow' ? 'POST' : 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        // Remove from pending
+        const updated = pendingFollows.filter(f => f.userId !== follow.userId);
+        localStorage.setItem('pendingFollows', JSON.stringify(updated));
+      }
+    }
+  } catch (error) {
+    console.error('Error syncing follows:', error);
+  }
+}
+
+async function syncPendingPosts() {
+  try {
+    const token = await getAuthToken();
+    const pendingPosts = JSON.parse(localStorage.getItem('pendingPosts') || '[]');
+
+    for (const post of pendingPosts) {
+      const formData = new FormData();
+      formData.append('title', post.title);
+      formData.append('description', post.description);
+      if (post.imageData) {
+        formData.append('image', post.imageData);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/post`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        // Remove from pending
+        const updated = pendingPosts.filter(p => p.id !== post.id);
+        localStorage.setItem('pendingPosts', JSON.stringify(updated));
+      }
+    }
+  } catch (error) {
+    console.error('Error syncing posts:', error);
+  }
+}
+
+// Handle messages from clients
+self.addEventListener('message', (event) => {
+  console.log('Service worker message:', event.data);
+
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  } else if (event.data && event.data.type === 'GET_VERSION') {
+    event.ports[0].postMessage({ version: '1.0.0' });
+  }
+});
+
+// Clean up old caches on activate
+self.addEventListener('activate', (event) => {
+  console.log('Service worker activated');
+
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames
+          .filter(cacheName => cacheName.startsWith('bookly-') && cacheName !== 'bookly-v1')
+          .map(cacheName => caches.delete(cacheName))
+      );
+    })
+  );
+});
+
+// Optional: Cache API requests for offline support
+self.addEventListener('fetch', (event) => {
+  // Only cache GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // Don't cache non-same-origin requests
+  if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        if (response) {
+          return response;
+        }
+
+        return fetch(event.request).then(response => {
+          // Don't cache if not successful
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response;
+          }
+
+          const responseToCache = response.clone();
+          caches.open('bookly-v1').then(cache => {
+            cache.put(event.request, responseToCache);
+          });
+
+          return response;
+        });
+      })
+      .catch(() => {
+        // Return offline page or cached response
+        return new Response('Offline', {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: new Headers({
+            'Content-Type': 'text/plain',
+          }),
+        });
+      })
+  );
+});
+
+// Log service worker installation
+console.log('Bookly Service Worker loaded');

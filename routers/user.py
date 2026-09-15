@@ -11,14 +11,14 @@ router=APIRouter(prefix='/user')
 def profile(
     token_obj: Annotated[Token, Depends(token_checker)],db:db_dependency
 ):
-    follower_count=db.query(Follower).filter(token_obj.user_id==Follower.follower_id).count()
-    following_count=db.query(Follower).filter(token_obj.user_id==Follower.following_id).count()
+    follower_count=db.query(Follower).filter(token_obj.user_id==Follower.following_id).count()
+    following_count=db.query(Follower).filter(token_obj.user_id==Follower.follower_id).count()
     post_count=db.query(Book).filter(token_obj.user_id==Book.author_id).count()
     user=token_obj.user
     return UserInn(
-         username=token_obj.username,
-         bio=token_obj.bio,
-         image_url=token_obj.url,
+         username=user.username,
+         bio=user.bio,
+         image_url=user.image_url,
          follower_count=follower_count,
          following_count=following_count,
          post_count=post_count,
@@ -41,7 +41,7 @@ def searchUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)
      if not search:
          raise HTTPException(status_code=404,detail="User not found")
     
-    if search.account_type==AccountType.PUBLIC_ACCOUNT or current_user:
+    if search.account_type==Accounttype.PUBLIC_ACCOUNT or current_user:
          
          return PublicUserResponse(
          username=search.username,
@@ -78,13 +78,14 @@ def Follow_user(token_obj:Annotated[Token,Depends(token_checker)],following_id:i
         )
     follow=Follower(following_id=following_id,follower_id=follower_id)
     following=db.query(User).filter(User.id==following_id).first()
-    if following.account_type==AccountType.PrivateAccount:
-         follow.status==FollowRequest.REQUESTED
+    if following.account_type==Accounttype.PRIVATE_ACCOUNT:
+         follow.status=FollowRequest.REQUESTED
          if not following:
               raise HTTPException(
                    detail='user nor found'
               )
-         
+    else:
+         follow.status=FollowRequest.ACCEPTED
     db.add(follow)
     db.commit()
     return  {'messege':'followed'}
@@ -122,7 +123,7 @@ def AccountType(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependen
 
     if user.account_type == Accounttype.PRIVATE_ACCOUNT:
             user.account_type=Accounttype.PUBLIC_ACCOUNT
-            db.query(Follower).filter(Follower.following_id==user.id,Follower.status==FollowRequest.REQUESTED).update({Follower.status==FollowRequest.ACCEPTED},synchronize_session=False)
+            db.query(Follower).filter(Follower.following_id==user.id,Follower.status==FollowRequest.REQUESTED).update({Follower.status:FollowRequest.ACCEPTED},synchronize_session=False)
             db.commit()
             db.refresh(user)
             return user.account_type
@@ -131,8 +132,8 @@ def AccountType(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependen
 @router.get('profile/{user_id}',tags=['user'])
 def GetAccountInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,user_id:str):
     user=db.query(User).filter(User.id==user_id).first()  
-    follower_count=db.query(Follower).filter(user.id==Follower.follower_id).count()
-    following_count=db.query(Follower).filter(user.id==Follower.following_id).count()
+    follower_count=db.query(Follower).filter(user.id==Follower.following_id).count()
+    following_count=db.query(Follower).filter(user.id==Follower.follower_id).count()
     post_counts = db.query(Book).filter(user.id == Book.author_id).count()
     current_user=db.query(Follower).filter(Follower.follower_id==user_id,Follower.status==FollowRequest.ACCEPTED)
 
@@ -186,43 +187,62 @@ async def TopFollowed(db:db_dependency,token_obj:Annotated[Token,Depends(token_c
 
 @router.get('/Followers/{user_id}/list')
 def GetAllFollowers(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,user_id:int):
-     current_user=db.query(Follower).join(User,User.id==Follower.follower_id).filter(Follower.follower_id==user_id).count()
+     current_user=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.following_id==user_id).order_by(Follower.created_at.desc()).all()
      if not current_user:
           raise HTTPException(
                status_code=403,
                detail='not found'
           )
-     return {'followers count':current_user}
+     return [
+               {
+                    'username':user.username,
+                    'image_url':user.image_url
+               }
+               for  user in current_user
+          ]
+     
 
-@router.get('/Followers/{user_id}/list')
+@router.get('/Followigs/{user_id}/list')
 def GetAllFollowings(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,user_id:int):
-     current_user=db.query(Follower).join(User,User.id==Follower.following_id).filter(Follower.following_id==user_id).count()
+     current_user=db.query(User).join(Follower,User.id==Follower.following_id).filter(Follower.follower_id==user_id).order_by(Follower.created_at.desc()).all()
      if not current_user:
           raise HTTPException(
                status_code=403,
                detail='not found'
           )
-     return {'followers count':current_user}
+     return [
+          {
+               'username':user.username,
+               'image_url':user.image_url
+          }
+          for  user in current_user
+     ]
 
 @router.get('/Followers/me/list')
 def GetAllFollowersme(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
-     me=db.query(Follower).join(User,User.id==Follower.follower_id).filter(Follower.follower_id==token_obj.user_id).count()
+     me=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.following_id==token_obj.user_id).order_by(Follower.created_at.desc()).all()
      if not me:
-          raise HTTPException(
-               status_code=403,
-               detail='not found'
-          )
-     return {'followers count':me}
+          return []     
+     return [
+          {
+               'username':user.username,
+               'image_url':user.image_url          }
+               for  user in me
+     ]
 
-@router.get('/Followers/me/list')
+@router.get('/Followings/me/list')
 def GetAllFollowingsme(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
-     me=db.query(Follower).join(User,User.id==Follower.following_id).filter(Follower.following_id==token_obj.user_id).count()
+     me=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.follower_id==token_obj.user_id).order_by(Follower.created_at.desc()).all()
      if not me:
-          raise HTTPException(
-               status_code=403,
-               detail='not found'
-          )
-     return {'followers count':me}
+          return []
+     return [
+          {
+               "username":user.userame,
+               "image_url":user.image_url
+          }
+          for user in me
+     ]
+     
      
      
      
