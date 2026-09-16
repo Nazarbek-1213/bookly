@@ -10,7 +10,7 @@ class Accounttype(PyEnum):
 class UserIn(BaseModel):
     username:str=Field(min_length=5)
     email:str
-    bio:str=Field(default=None, max_length=300)
+    bio: str | None = Field(default=None, max_length=300)
     image_url:str|None
 
 class Userdb(UserIn):
@@ -18,8 +18,8 @@ class Userdb(UserIn):
     password2:str=Field(min_length=8, max_length=29)
 
 class UserLogin(BaseModel):
-    username:str
-    password:str
+    username:str=Field(min_length=8, max_length=29)
+    password:str=Field(min_length=8, max_length=29)
 class TokenInfo(BaseModel):
     token:str
     device_info:str
@@ -47,7 +47,7 @@ class SessionResponse(BaseModel):
     created_at:datetime
 class UserInn(BaseModel):
     username:str=Field(min_length=5)
-    bio:str=Field(default=None, max_length=300)
+    bio: str | None = Field(default=None, max_length=300)
     image_url:str| None=None
     follower_count:int
     following_count:int
@@ -55,6 +55,7 @@ class UserInn(BaseModel):
     account_type:str
     posts:list=[BookResponce]
 class PublicUserResponse(BaseModel):
+    id:int
     username: str
     image_url: str | None = None
     email: str | None = None
@@ -64,6 +65,7 @@ class PublicUserResponse(BaseModel):
     follower_count:int
     following_count:int
 class PrivateUserResponse (BaseModel):
+    id:int
     username:str
     count_posts:int
     follower_count:int

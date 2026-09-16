@@ -94,7 +94,7 @@ def disLikePosts(token_obj:Annotated[Token,Depends(token_checker)],db:db_depende
           )
      db.delete(like)
      db.commit()
-@router.get('count/like/{book_id}',tags=['review'])
+@router.get('/count/like/{book_id}',tags=['review'])
 def CountLike(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,book_id:int):
      like=db.query(Like).filter(book_id==Like.book_id).count()
      return like

@@ -52,7 +52,7 @@ async def ChangeInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dep
     db.refresh(bookid)
     return bookid
 
-@router.get('/see',response_model=list[BookResponce]| None ,tags=['post'])
+@router.get('/see/',response_model=list[BookResponce]| None ,tags=['post'])
 def PostSee(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
   user=token_obj.user
   followed=db.query(Follower).filter(user.id==Follower.follower_id).all()

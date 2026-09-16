@@ -35,18 +35,17 @@ def profile(
          ]
            )
 
+
+
 @router.get('/search',response_model=PrivateUserResponse|PublicUserResponse, tags=['user'])
 def searchUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],username:str):
     user=token_obj.user
-    post_counts = db.query(Book).filter(search.id == Book.author_id).count()
-    follower_count=db.query(Follower).filter(search.id==Follower.follower_id).count()
-    following_count=db.query(Follower).filter(search.id==Follower.following_id).count()
-
     if user:
-
      search=db.query(User).filter(User.username==username.strip()).first()
-     a=search.id
-     current_user=db.query(Follower).filter(Follower.follower_id==a,Follower.status==FollowRequest.ACCEPTED,Follower.following_id==user.id)
+     current_user=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.following_id==search.id,Follower.status==FollowRequest.ACCEPTED,Follower.follower_id==user.id).first()
+     follower_count=db.query(Follower).filter(search.id==Follower.follower_id).count()
+     following_count=db.query(Follower).filter(search.id==Follower.following_id).count()
+     post_counts = db.query(Book).filter(search.id == Book.author_id).count()
 
      if not search:
          raise HTTPException(status_code=404,detail="User not found")
@@ -54,6 +53,7 @@ def searchUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)
     if search.account_type==Accounttype.PUBLIC_ACCOUNT or current_user:
          
          return PublicUserResponse(
+         id=search.id,
          username=search.username,
          image_url=search.image_url,
          email=search.email,
@@ -66,6 +66,7 @@ def searchUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)
     elif search.account_type==Accounttype.PRIVATE_ACCOUNT:
          
          return PrivateUserResponse(
+             id=search.id,
              username=search.username,
              count_posts=post_counts,
              follower_count=follower_count,
@@ -100,6 +101,40 @@ def Follow_user(token_obj:Annotated[Token,Depends(token_checker)],following_id:i
     db.commit()
     return  {'messege':'followed'}
 
+@router.get('/requested/following/list',tags=['user'])
+async def RequestFollow(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
+     users=db.query(User).join(Follower,Follower.follower_id==User.id).filter(Follower.following_id==token_obj.user_id,Follower.status==FollowRequest.REQUESTED).all()
+     return [
+          {     'id':user.id,
+               'username':user.username,
+               'image':user.image_url,
+          }
+          for user in users
+     ]
+@router.patch('/request/accepting/{user_id}',tags=['user'])
+async def AceptingFollow(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,user_id:int):
+        follower=db.query(Follower).filter(Follower.follower_id==user_id,Follower.following_id==token_obj.user_id,Follower.status==FollowRequest.REQUESTED).first()
+        if not follower:
+         return None
+        follower.status=FollowRequest.ACCEPTED        
+        db.commit()
+        db.refresh(follower)
+        return {
+             'messege':'accepted'
+        }
+@router.patch('/request/rejecting/{user_id}',tags=['user'])
+async def RejectingFollow(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,user_id:int):
+        follower=db.query(Follower).filter(Follower.follower_id==user_id,Follower.following_id==token_obj.user_id,Follower.status==FollowRequest.REQUESTED).first()
+        if not follower:
+         return None
+        follower.status=FollowRequest.REJECTED       
+        db.commit()
+        db.refresh(follower)
+        return {
+             'messege':'rejectedted'
+        }        
+
+
 @router.delete('/unfollow',tags=['user'])
 def UnFollow_user(token_obj:Annotated[Token,Depends(token_checker)],following_id:int,db:db_dependency):
     follower_id=token_obj.user_id
@@ -112,9 +147,7 @@ def UnFollow_user(token_obj:Annotated[Token,Depends(token_checker)],following_id
     if exists:
         db.delete(exists)
         db.commit()
-        return {'massege':'unfollowed succesfully'}
-
-   
+        return {'massege':'unfollowed succesfully'}   
  
 @router.patch('/account-type/',tags=['user'])
 def AccountType(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
@@ -139,28 +172,30 @@ def AccountType(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependen
             return user.account_type
     
 
-@router.get('profile/{user_id}',tags=['user'])
+@router.get('/profile/{user_id}',tags=['user'])
 def GetAccountInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,user_id:str):
     user=db.query(User).filter(User.id==user_id).first()  
-    follower_count=db.query(Follower).filter(user.id==Follower.following_id).count()
-    following_count=db.query(Follower).filter(user.id==Follower.follower_id).count()
-    post_counts = db.query(Book).filter(user.id == Book.author_id).count()
-    current_user=db.query(Follower).filter(Follower.follower_id==user_id,Follower.status==FollowRequest.ACCEPTED)
-
     if not user:
              raise HTTPException(
                  status_code=400,
                  detail='user not found'
              )   
+    follower_count=db.query(Follower).filter(user.id==Follower.following_id).count()
+    following_count=db.query(Follower).filter(user.id==Follower.follower_id).count()
+    post_counts = db.query(Book).filter(user.id == Book.author_id).count()
+    current_user=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.following_id==user_id,Follower.status==FollowRequest.ACCEPTED,Follower.follower_id==token_obj.user_id).first()
+    
     if user.account_type==Accounttype.PRIVATE_ACCOUNT:
                 return PrivateUserResponse(
+                    id=user.id,
                     username=user.username,
                     count_posts=post_counts,
                     following_count=following_count,
-                    follower_count=following_count
+                    follower_count=follower_count
                 )
-    elif user.account_type==Accounttype.PUBLIC_ACCOUNT_ACCOUNT or current_user:
+    elif user.account_type==Accounttype.PUBLIC_ACCOUNT or current_user:
             return PublicUserResponse(
+                id=user.id,
                 username=user.username,
                 image_url=user.image_url,
                 email=user.email,
@@ -195,6 +230,28 @@ async def TopFollowed(db:db_dependency,token_obj:Annotated[Token,Depends(token_c
         ]
     }
 
+
+@router.get('/Followers/me/list')
+def GetAllFollowersme(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
+     me=db.query(User).join(Follower,Follower.follower_id==User.id).filter(Follower.following_id==token_obj.user_id).order_by(Follower.created_at.desc()).all()     
+     return [
+          {
+               'username':user.username,
+               'image_url':user.image_url          }
+               for  user in me
+     ]
+
+@router.get('/Followings/me/list')
+def GetAllFollowingsme(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
+     me=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.follower_id==token_obj.user_id).order_by(Follower.created_at.desc()).all()
+     return [
+          {
+               "username":user.username,
+               "image_url":user.image_url
+          }
+          for user in me
+     ]
+     
 @router.get('/Followers/{user_id}/list')
 def GetAllFollowers(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,user_id:int):
      current_user=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.following_id==user_id).order_by(Follower.created_at.desc()).all()
@@ -228,31 +285,7 @@ def GetAllFollowings(token_obj:Annotated[Token,Depends(token_checker)],db:db_dep
           for  user in current_user
      ]
 
-@router.get('/Followers/me/list')
-def GetAllFollowersme(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
-     me=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.following_id==token_obj.user_id).order_by(Follower.created_at.desc()).all()
-     if not me:
-          return []     
-     return [
-          {
-               'username':user.username,
-               'image_url':user.image_url          }
-               for  user in me
-     ]
 
-@router.get('/Followings/me/list')
-def GetAllFollowingsme(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
-     me=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.follower_id==token_obj.user_id).order_by(Follower.created_at.desc()).all()
-     if not me:
-          return []
-     return [
-          {
-               "username":user.userame,
-               "image_url":user.image_url
-          }
-          for user in me
-     ]
-     
      
      
      

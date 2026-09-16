@@ -60,9 +60,9 @@ async def create_user( db: db_dependency,
         password2=password2
     )
 
-   
-
-    firebase_url= await uploadpic(file)
+    firebase_url=None
+    if file:       
+      firebase_url= await uploadpic(file)
     new_user = User(
         username=username,
         image_url=firebase_url,
