@@ -1,5 +1,5 @@
 /* =====================================================================
-   Bookgram — Instagram-style frontend for the FastAPI "books" backend
+   Bookly — Instagram-style frontend for the FastAPI "books" backend
    Structure: CONFIG → state → api() → API → modals → auth → router → pages
    ===================================================================== */
 'use strict';
@@ -10,9 +10,10 @@ const CONFIG = {
   TOKEN_FIELD: 'token',        // field of the login response that holds the token
   USER_ID_FIELD: 'user_id',    // field of the login response that holds my user id
   STORAGE: {
-    token: 'bookgram_token',
-    userId: 'bookgram_user_id',
-    liked: 'bookgram_liked_',  // + userId
+    token: 'bookly_token',
+    userId: 'bookly_user_id',
+    liked: 'bookly_liked_',    // + userId
+    pending: 'bookly_pending_', // + userId (yopiq akkauntlarga yuborilgan so'rovlar)
   },
   TOAST_MS: 3200,
 };
@@ -46,6 +47,7 @@ const state = {
   liked: new Set(),         // post ids liked by me (localStorage)
   likeCounts: new Map(),    // post id -> count
   following: new Set(),     // usernames I follow (from /user/Followings/me/list)
+  pending: new Set(),       // user ids I sent a follow request to (private accounts)
   posts: new Map(),         // post id -> post object (feed + profile grids)
   route: { path: '/', params: {}, query: {} },
   modals: [],               // stack of modal elements
@@ -130,6 +132,21 @@ function setLiked(id, val) {
   saveLiked();
 }
 function isLiked(id) { return state.liked.has(String(id)); }
+
+/* pending follow-request persistence */
+function pendingKey() { return CONFIG.STORAGE.pending + (state.userId || 'anon'); }
+function loadPending() {
+  try { state.pending = new Set(JSON.parse(localStorage.getItem(pendingKey()) || '[]').map(String)); }
+  catch { state.pending = new Set(); }
+}
+function savePending() {
+  try { localStorage.setItem(pendingKey(), JSON.stringify([...state.pending])); } catch { /* ignore */ }
+}
+function setPending(id, val) {
+  if (val) state.pending.add(String(id)); else state.pending.delete(String(id));
+  savePending();
+}
+function isPending(id) { return state.pending.has(String(id)); }
 
 /* ============================== API CORE ============================ */
 class ApiError extends Error {
@@ -249,6 +266,12 @@ const API = {
   followingsOf: (user_id) => api(`/user/Followigs/${user_id}/list`),   // typo is intentional (backend path)
   myFollowers: () => api('/user/Followers/me/list'),
   myFollowings: () => api('/user/Followings/me/list'),
+
+  // ---- follow requests (yopiq akkaunt uchun)
+  followRequests: () => api('/user/requested/following/list'),
+  acceptRequest: (user_id) => api(`/user/request/accepting/${user_id}`, { method: 'PATCH' }),
+  rejectRequest: (user_id) => api(`/user/request/rejecting/${user_id}`, { method: 'PATCH' }),
+
   sessionsAll: () => api('/user/sessions/all'),
   sessionsCount: () => api('/user/sessions'),
   sessionDetail: (token_id) => api(`/user/sessions/${token_id}`),
@@ -283,11 +306,18 @@ async function refreshFollowing() {
   } catch { /* keep old */ }
 }
 function amFollowing(username) { return state.following.has(username); }
-function followBtnHtml(userId, username, extra = '') {
+function followBtnHtml(userId, username, extra = '', isPrivateAcc = false) {
   if (!userId || String(userId) === String(state.userId)) return '';
   const f = amFollowing(username);
-  return `<button class="btn ${f ? 'btn-secondary' : ''} ${extra}" data-action="${f ? 'unfollow' : 'follow'}" data-user-id="${esc(userId)}" data-username="${esc(username)}">${f ? "Kuzatishni to'xtatish" : 'Kuzatish'}</button>`;
+  const waiting = isPending(userId) && !amFollowingAccepted(username);
+  let label = 'Kuzatish', action = 'follow', cls = '';
+  if (waiting) { label = "So'rov yuborilgan"; action = 'unfollow'; cls = 'btn-outline'; }
+  else if (f) { label = "Kuzatishni to'xtatish"; action = 'unfollow'; cls = 'btn-secondary'; }
+  return `<button class="btn ${cls} ${extra}" data-action="${action}" data-user-id="${esc(userId)}" data-username="${esc(username)}" data-private="${isPrivateAcc ? '1' : ''}">${label}</button>`;
 }
+/* The backend's followings list includes REQUESTED rows, so a name there is not
+   proof of acceptance; a locally tracked pending request wins over it. */
+function amFollowingAccepted(username) { return false; }
 
 /* ============================== MODALS ============================== */
 function openModal({ html, cls = '', onClose = null, closeBtn = true }) {
@@ -351,7 +381,7 @@ function saveSession(token, userId) {
 }
 function clearSession() {
   state.token = null; state.userId = null; state.me = null;
-  state.users.clear(); state.following.clear(); state.posts.clear(); state.likeCounts.clear();
+  state.users.clear(); state.following.clear(); state.pending.clear(); state.posts.clear(); state.likeCounts.clear();
   try {
     localStorage.removeItem(CONFIG.STORAGE.token);
     localStorage.removeItem(CONFIG.STORAGE.userId);
@@ -389,7 +419,7 @@ function renderAuth(mode) {
   s.innerHTML = `
     <div class="auth-box">
       <div class="auth-card">
-        <span class="logo">Bookgram</span>
+        <span class="logo">Bookly</span>
         ${isLogin ? `
           <form data-form="login" novalidate>
             <input class="input" name="username" placeholder="Foydalanuvchi nomi" autocomplete="username" required>
@@ -422,7 +452,7 @@ function renderAuth(mode) {
           ? `Hisobingiz yo'qmi? <button class="btn-link" type="button" data-action="auth-switch" data-mode="register">Ro'yxatdan o'tish</button>`
           : `Hisobingiz bormi? <button class="btn-link" type="button" data-action="auth-switch" data-mode="login">Kirish</button>`}
       </div>
-      <div class="auth-footer">© ${new Date().getFullYear()} Bookgram</div>
+      <div class="auth-footer">© ${new Date().getFullYear()} Bookly</div>
     </div>`;
 }
 
@@ -480,6 +510,7 @@ async function handleRegister(form) {
 /* boot after we have a token */
 async function bootApp() {
   loadLiked();
+  loadPending();
   try {
     state.me = await API.me();
   } catch (e) {
@@ -918,7 +949,7 @@ function rightColHtml() {
     </div>
     <div class="right-title"><span>Eng ko'p kuzatiladiganlar</span></div>
     <div data-top>${spinner('sm')}</div>
-    <div class="auth-footer" style="text-align:left;margin-top:20px">© ${new Date().getFullYear()} BOOKGRAM</div>`;
+    <div class="auth-footer" style="text-align:left;margin-top:20px">© ${new Date().getFullYear()} BOOKLY</div>`;
 }
 function topUserRowHtml(u, variant) {
   const id = u.user_id;
@@ -998,7 +1029,7 @@ async function doSearch(username) {
           ${pub && u.email ? `<div class="profile-email">${esc(u.email)}</div>` : ''}
           <div class="result-actions">
             ${isMe ? `<a class="btn btn-secondary" href="#/profile">Mening profilim</a>` : ''}
-            ${!isMe && id !== null ? followBtnHtml(id, u.username) : ''}
+            ${!isMe && id !== null ? followBtnHtml(id, u.username, '', !pub) : ''}
             ${!isMe && id !== null ? `<a class="btn btn-secondary" href="#/user/${esc(id)}">Profil</a>` : ''}
           </div>
           ${!isMe && id === null ? `<div class="warn-box">Qidiruv natijasida foydalanuvchi ID si yo'q, shuning uchun kuzatish va profil tugmalari ko'rsatilmaydi.</div>` : ''}
@@ -1040,8 +1071,8 @@ function profileHtml({ id, isMe, username, image_url, bio, email, postCount, fol
             <span class="username">${esc(username)}</span>
             ${isMe ? `<span class="chip ${isPrivateType(accountType) ? 'chip-gray' : 'chip-green'}">${isPrivateType(accountType) ? 'Yopiq' : 'Ochiq'}</span>` : (publicView ? '' : `<span class="chip chip-gray">Yopiq akkaunt</span>`)}
             ${isMe
-              ? `<a class="btn btn-secondary" href="#/settings">Profilni tahrirlash</a><button class="btn btn-secondary" type="button" data-action="open-create">Yangi post</button>`
-              : followBtnHtml(id, username)}
+              ? `<a class="btn btn-secondary" href="#/settings">Profilni tahrirlash</a><button class="btn btn-secondary" type="button" data-action="open-create">Yangi post</button><button class="btn btn-secondary" type="button" data-action="requests-open">So'rovlar</button>`
+              : followBtnHtml(id, username, '', !publicView)}
           </div>
           <div class="profile-stats">
             <span class="stat"><b>${esc(postCount ?? 0)}</b> post</span>
@@ -1138,11 +1169,56 @@ async function openListModal(kind, userId) {
   } catch (e) { box.innerHTML = `<div class="error-text">${esc(e.message)}</div>`; }
 }
 
-/* follow / unfollow */
-async function doFollow(id, username, follow) {
+/* ---------- follow requests (yopiq akkaunt) ---------- */
+function requestRowHtml(u) {
+  const img = u.image_url || u.image || '';
+  return `
+    <div class="list-row" data-request-user="${esc(u.id)}">
+      <a href="#/user/${esc(u.id)}">${avatarImg(img, 'avatar-44')}</a>
+      <span class="username">${esc(u.username)}</span>
+      <button class="btn btn-sm" type="button" data-action="request-accept" data-user-id="${esc(u.id)}" data-username="${esc(u.username)}">Qabul qilish</button>
+      <button class="btn btn-sm btn-secondary" type="button" data-action="request-reject" data-user-id="${esc(u.id)}" data-username="${esc(u.username)}">Rad etish</button>
+    </div>`;
+}
+async function loadRequestsInto(box) {
+  if (!box) return 0;
+  box.innerHTML = spinner();
   try {
-    if (follow) await API.follow(id); else await API.unfollow(id);
-    toast(follow ? `${username} kuzatilmoqda` : `${username} kuzatuvi to'xtatildi`);
+    const list = await API.followRequests();
+    const arr = Array.isArray(list) ? list : [];
+    if (!arr.length) { box.innerHTML = `<div class="no-comments"><h4>So'rovlar yo'q</h4><div>Yangi kuzatish so'rovlari shu yerda chiqadi.</div></div>`; return 0; }
+    box.innerHTML = arr.map(requestRowHtml).join('');
+    return arr.length;
+  } catch (e) { box.innerHTML = `<div class="error-text">${esc(e.message)}</div>`; return 0; }
+}
+function openRequestsModal() {
+  const m = openModal({ html: `<div class="modal-head">Kuzatish so'rovlari</div><div class="modal-body" data-requests>${spinner()}</div>`, cls: 'list-modal' });
+  loadRequestsInto($('[data-requests]', m));
+}
+async function answerRequest(userId, username, accept, el) {
+  try {
+    if (accept) await API.acceptRequest(userId); else await API.rejectRequest(userId);
+    toast(accept ? `${username} qabul qilindi` : `${username} rad etildi`);
+    // reload only the list the button belongs to (settings card or modal)
+    const box = (el && el.closest('[data-requests]')) || $('[data-requests]');
+    if (box) await loadRequestsInto(box);
+    invalidateUser(state.userId);
+    if (state.route.name === 'profile') reloadMe();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+/* follow / unfollow */
+async function doFollow(id, username, follow, isPrivateAcc = false) {
+  try {
+    if (follow) {
+      await API.follow(id);
+      if (isPrivateAcc) { setPending(id, true); toast("Kuzatish so'rovi yuborildi"); }
+      else { setPending(id, false); toast(`${username} kuzatilmoqda`); }
+    } else {
+      await API.unfollow(id);
+      setPending(id, false);
+      toast(`${username} kuzatuvi to'xtatildi`);
+    }
     await refreshFollowing();
     invalidateUser(id);
     // re-render the current page so counts and buttons update
@@ -1205,6 +1281,15 @@ async function renderSettings() {
 
       <section class="card">
         <div class="settings-row" style="margin-bottom:8px">
+          <h2 class="card-title" style="margin:0">Kuzatish so'rovlari</h2>
+          <button class="btn btn-secondary btn-sm" type="button" data-action="requests-refresh">Yangilash</button>
+        </div>
+        <p class="card-sub">Yopiq akkauntda sizni kuzatmoqchi bo'lganlar shu yerda chiqadi.</p>
+        <div data-requests>${spinner()}</div>
+      </section>
+
+      <section class="card">
+        <div class="settings-row" style="margin-bottom:8px">
           <h2 class="card-title" style="margin:0">Faol sessiyalar <span class="chip chip-blue" data-session-count>…</span></h2>
           <button class="btn btn-secondary btn-sm" type="button" data-action="refresh-sessions">Yangilash</button>
         </div>
@@ -1224,6 +1309,7 @@ async function renderSettings() {
       </section>
     </div>`;
   loadSessions();
+  loadRequestsInto($('[data-requests]'));
 }
 async function loadSessions() {
   const box = $('[data-sessions]');
@@ -1335,8 +1421,12 @@ const actions = {
   'comment-edit': (el) => startCommentEdit(el.closest('.comment')),
   'comment-edit-cancel': (el) => { const c = el.closest('.comment'); const t = $('[data-comment-text]', c); if (t) t.hidden = false; el.closest('form').remove(); },
   'comment-delete': (el) => deleteMyComment(el.closest('.comment')),
-  'follow': (el) => doFollow(el.dataset.userId, el.dataset.username, true),
-  'unfollow': (el) => doFollow(el.dataset.userId, el.dataset.username, false),
+  'follow': (el) => doFollow(el.dataset.userId, el.dataset.username, true, el.dataset.private === '1'),
+  'unfollow': (el) => doFollow(el.dataset.userId, el.dataset.username, false, el.dataset.private === '1'),
+  'requests-open': () => openRequestsModal(),
+  'requests-refresh': () => loadRequestsInto($('[data-requests]')),
+  'request-accept': (el) => answerRequest(el.dataset.userId, el.dataset.username, true, el),
+  'request-reject': (el) => answerRequest(el.dataset.userId, el.dataset.username, false, el),
   'followers-list': (el) => openListModal('followers', el.dataset.userId),
   'following-list': (el) => openListModal('following', el.dataset.userId),
   'search-user': (el) => { closeAllModals(); navigate(`#/search?username=${encodeURIComponent(el.dataset.username)}`); if (state.route.name === 'search') doSearch(el.dataset.username); },
