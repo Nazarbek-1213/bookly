@@ -11,8 +11,8 @@ router=APIRouter(prefix='/user')
 def profile(
     token_obj: Annotated[Token, Depends(token_checker)],db:db_dependency
 ):
-    follower_count=db.query(Follower).filter(token_obj.user_id==Follower.following_id).count()
-    following_count=db.query(Follower).filter(token_obj.user_id==Follower.follower_id).count()
+    follower_count=db.query(Follower).filter(token_obj.user_id==Follower.following_id,Follower.status==FollowRequest.ACCEPTED).count()
+    following_count=db.query(Follower).filter(token_obj.user_id==Follower.follower_id,Follower.status==FollowRequest.ACCEPTED).count()
     post_count=db.query(Book).filter(token_obj.user_id==Book.author_id).count()
     user=token_obj.user
     return UserInn(
@@ -43,8 +43,8 @@ def searchUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)
     if user:
      search=db.query(User).filter(User.username==username.strip()).first()
      current_user=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.following_id==search.id,Follower.status==FollowRequest.ACCEPTED,Follower.follower_id==user.id).first()
-     follower_count=db.query(Follower).filter(search.id==Follower.follower_id).count()
-     following_count=db.query(Follower).filter(search.id==Follower.following_id).count()
+     follower_count=db.query(Follower).filter(search.id==Follower.follower_id,Follower.status==FollowRequest.ACCEPTED).count()
+     following_count=db.query(Follower).filter(search.id==Follower.following_id,Follower.status==FollowRequest.ACCEPTED).count()
      post_counts = db.query(Book).filter(search.id == Book.author_id).count()
 
      if not search:
@@ -173,15 +173,15 @@ def AccountType(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependen
     
 
 @router.get('/profile/{user_id}',tags=['user'])
-def GetAccountInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,user_id:str):
+def GetAccountInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,user_id:int):
     user=db.query(User).filter(User.id==user_id).first()  
     if not user:
              raise HTTPException(
                  status_code=400,
                  detail='user not found'
              )   
-    follower_count=db.query(Follower).filter(user.id==Follower.following_id).count()
-    following_count=db.query(Follower).filter(user.id==Follower.follower_id).count()
+    follower_count=db.query(Follower).filter(user.id==Follower.following_id,Follower.status==FollowRequest.ACCEPTED).count()
+    following_count=db.query(Follower).filter(user.id==Follower.follower_id,Follower.status==FollowRequest.ACCEPTED).count()
     post_counts = db.query(Book).filter(user.id == Book.author_id).count()
     current_user=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.following_id==user_id,Follower.status==FollowRequest.ACCEPTED,Follower.follower_id==token_obj.user_id).first()
     

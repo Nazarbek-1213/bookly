@@ -1,7 +1,3 @@
-/* =====================================================================
-   Bookly — Instagram-style frontend for the FastAPI "books" backend
-   Structure: CONFIG → state → api() → API → modals → auth → router → pages
-   ===================================================================== */
 'use strict';
 
 /* ============================== CONFIG ============================== */
@@ -243,7 +239,7 @@ const API = {
   createPost: (form) => api('/post/post', { method: 'POST', form }),
   updatePost: (id, form) => api(`/post/put/${id}`, { method: 'PUT', form }),
   deletePost: (id) => api(`/post/delete/${id}`, { method: 'DELETE' }),
-  feed: () => api('/post/see'),
+  feed: (author_id) => api(`/post/see/${author_id}`),
 
   // ---- review
   comments: (book_id) => api('/review/see/comments', { query: { book_id } }),
@@ -268,7 +264,7 @@ const API = {
   myFollowings: () => api('/user/Followings/me/list'),
 
   // ---- follow requests (yopiq akkaunt uchun)
-  followRequests: () => api('/user/requested/following/list'),
+ followRequests: () => api('/user/requested/following/list'), 
   acceptRequest: (user_id) => api(`/user/request/accepting/${user_id}`, { method: 'PATCH' }),
   rejectRequest: (user_id) => api(`/user/request/rejecting/${user_id}`, { method: 'PATCH' }),
 
@@ -281,6 +277,12 @@ const API = {
 function getUser(id) {
   const key = String(id);
   if (state.users.has(key)) return Promise.resolve(state.users.get(key));
+  /* backend: user_id int — raqam bo'lmasa so'rov yubormaymiz (422 oldini olish) */
+  if (!/^\d+$/.test(key)) {
+    const rec = { id: key, username: "noma'lum foydalanuvchi", image_url: '', private: true, missing: true };
+    state.users.set(key, rec);
+    return Promise.resolve(rec);
+  }
   if (state.userPromises.has(key)) return state.userPromises.get(key);
   const p = API.profile(id)
     .then(u => {
@@ -373,10 +375,14 @@ function infoModal(title, bodyHtml) {
 
 /* ============================== AUTH FLOW =========================== */
 function saveSession(token, userId) {
-  state.token = token; state.userId = userId;
+  state.token = token;
+  /* /auth/login javobi TokenInfo: {token, device_info, ip_address} — user_id yo'q.
+     String(undefined) === "undefined" localStorage'ga tushib qolmasligi uchun tekshiramiz. */
+  state.userId = /^\d+$/.test(String(userId)) ? String(userId) : null;
   try {
     localStorage.setItem(CONFIG.STORAGE.token, token);
-    localStorage.setItem(CONFIG.STORAGE.userId, String(userId));
+    if (state.userId) localStorage.setItem(CONFIG.STORAGE.userId, state.userId);
+    else localStorage.removeItem(CONFIG.STORAGE.userId);
   } catch { /* ignore */ }
 }
 function clearSession() {
@@ -517,6 +523,19 @@ async function bootApp() {
     if (state.token) { forceLogout(e.status ? 'Sessiya yaroqsiz. Qayta kiring.' : e.message); }
     return;
   }
+  /* Login javobida ham, /user/profile/me da ham raqamli id yo'q.
+     /user/search esa id qaytaradi — o'zimizni o'zimiz qidirib olamiz. */
+  if (!state.userId) {
+    try {
+      const mine = await API.search(state.me.username);
+      const myId = mine && (mine.id ?? mine.user_id);
+      if (myId !== undefined && myId !== null) {
+        state.userId = String(myId);
+        try { localStorage.setItem(CONFIG.STORAGE.userId, state.userId); } catch { /* ignore */ }
+        loadLiked(); loadPending();   // bu kalitlar userId ga bog'langan
+      }
+    } catch { /* id topilmasa ham ilova ishlayveradi */ }
+  }
   showApp();
   updateSidebar();
   refreshFollowing();
@@ -616,6 +635,8 @@ function postCardHtml(post, author) {
     </article>`;
 }
 async function loadLikeCount(id) {
+  /* backend: book_id int - id yo'q postlar uchun so'rov yubormaymiz */
+  if (!/^\d+$/.test(String(id))) { state.likeCounts.set(String(id), 0); return 0; }
   try {
     const n = await API.likeCount(id);
     const num = typeof n === 'number' ? n : (n && (n.count ?? n.likes)) ?? Number(n) ?? 0;
@@ -906,6 +927,39 @@ async function submitPostEditor(form) {
 }
 
 /* ============================== FEED PAGE =========================== */
+/* /post/see/{author_id} bitta muallifning postlarini qaytaradi (faqat men uni
+   ACCEPTED holatda kuzatsam). Shuning uchun lentani kuzatilayotganlar ro'yxati
+   bo'yicha yig'amiz. Followings ro'yxatida id yo'q -> id'ni /user/search dan olamiz. */
+const idByUsername = new Map();
+async function userIdByUsername(username) {
+  if (idByUsername.has(username)) return idByUsername.get(username);
+  let id = null;
+  try {
+    const info = await API.search(username);
+    const v = info && (info.id ?? info.user_id);
+    if (v !== undefined && v !== null) id = String(v);
+  } catch { /* topilmasa null qoladi */ }
+  idByUsername.set(username, id);
+  return id;
+}
+async function loadFeedPosts() {
+  let following = [];
+  try { following = await API.myFollowings(); } catch { return []; }
+  if (!Array.isArray(following) || !following.length) return [];
+  const ids = await Promise.all(following.map(u => userIdByUsername(u.username)));
+  const chunks = await Promise.all(ids.map(async (id) => {
+    if (!id) return [];
+    try {
+      const list = await API.feed(id);
+      const arr = Array.isArray(list) ? list : [];
+      /* BookResponce author_id qaytarmaydi - kimdan so'raganimizni bilamiz, shuni qo'yamiz */
+      arr.forEach(p => { if (p.author_id === undefined || p.author_id === null) p.author_id = id; });
+      return arr;
+    } catch { return []; }
+  }));
+  return chunks.flat();
+}
+
 async function renderFeed() {
   const page = $('#page');
   page.innerHTML = `
@@ -917,7 +971,7 @@ async function renderFeed() {
 
   const feedEl = $('[data-feed]', page);
   let posts = [];
-  try { posts = await API.feed(); } catch (e) { feedEl.innerHTML = `<div class="error-text">${esc(e.message)}</div>`; return; }
+  try { posts = await loadFeedPosts(); } catch (e) { feedEl.innerHTML = `<div class="error-text">${esc(e.message)}</div>`; return; }
   if (!Array.isArray(posts)) posts = [];
   posts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   posts.forEach(p => { if (p.id !== undefined && p.id !== null) state.posts.set(String(p.id), p); });
@@ -1096,7 +1150,7 @@ async function renderMyProfile() {
   page.innerHTML = spinner();
   const [me, full] = await Promise.all([
     API.me(),
-    API.profile(state.userId).catch(() => null),
+    state.userId ? API.profile(state.userId).catch(() => null) : Promise.resolve(null),
   ]);
   state.me = me; updateSidebar();
   // Posts may come from /user/profile/{id} (with ids) or from /user/profile/me (may lack ids)
@@ -1184,7 +1238,7 @@ async function loadRequestsInto(box) {
   if (!box) return 0;
   box.innerHTML = spinner();
   try {
-    const list = await API.followRequests();
+    const list = await API.followRequests(state.userId);
     const arr = Array.isArray(list) ? list : [];
     if (!arr.length) { box.innerHTML = `<div class="no-comments"><h4>So'rovlar yo'q</h4><div>Yangi kuzatish so'rovlari shu yerda chiqadi.</div></div>`; return 0; }
     box.innerHTML = arr.map(requestRowHtml).join('');
@@ -1234,7 +1288,10 @@ async function doFollow(id, username, follow, isPrivateAcc = false) {
 async function renderSettings() {
   const page = $('#page');
   page.innerHTML = spinner();
-  const [me, full] = await Promise.all([API.me(), API.profile(state.userId).catch(() => null)]);
+  const [me, full] = await Promise.all([
+    API.me(),
+    state.userId ? API.profile(state.userId).catch(() => null) : Promise.resolve(null),
+  ]);
   state.me = me; updateSidebar();
   if (state.route.name !== 'settings') return;
   const priv = isPrivateType(me.account_type);
@@ -1480,7 +1537,8 @@ function init() {
   $$('[data-icon]').forEach(el => { el.innerHTML = ICONS[el.dataset.icon] || ''; });
   try {
     state.token = localStorage.getItem(CONFIG.STORAGE.token);
-    state.userId = localStorage.getItem(CONFIG.STORAGE.userId);
+    const uid = localStorage.getItem(CONFIG.STORAGE.userId);
+    state.userId = /^\d+$/.test(String(uid)) ? uid : null;   // eski "undefined" qiymatini tashlaymiz
   } catch { /* ignore */ }
   if (state.token) bootApp(); else showAuth();
 }

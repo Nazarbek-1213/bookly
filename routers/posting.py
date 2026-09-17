@@ -1,7 +1,7 @@
 from fastapi import APIRouter,Depends,HTTPException,UploadFile,File,Form
 from depen import db_dependency,uploadpic,token_checker
 from model import UserIn,Private,BookResponce
-from database import User,Token,Follower,Accounttype,Book
+from database import User,Token,Follower,Accounttype,Book,FollowRequest
 from typing import Annotated
 
 
@@ -52,16 +52,14 @@ async def ChangeInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dep
     db.refresh(bookid)
     return bookid
 
-@router.get('/see/',response_model=list[BookResponce]| None ,tags=['post'])
-def PostSee(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
-  user=token_obj.user
-  followed=db.query(Follower).filter(user.id==Follower.follower_id).all()
-  if not followed:
-       return []
+@router.get('/see/{author_id}',response_model=list[BookResponce]| None ,tags=['post'])
+def PostSee(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,author_id:int):
+  followed=db.query(Follower).join(Book,Follower.follower_id==Book.author_id).filter(Follower.following_id==author_id,Follower.follower_id==token_obj.user_id,Follower.status==FollowRequest.ACCEPTED).all()
   f_ids=[]
   for f in followed:
       f_ids.append(f.following_id)      
   post=db.query(Book).filter(Book.author_id.in_(f_ids)).order_by(Book.created_at.desc()).all()
+  
   return post
 
 
