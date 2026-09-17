@@ -18,14 +18,14 @@ class Userdb(UserIn):
     password2:str=Field(min_length=8, max_length=29)
 
 class UserLogin(BaseModel):
-    username:str=Field(min_length=8, max_length=29)
+    username:str=Field(min_length=4, max_length=29)
     password:str=Field(min_length=8, max_length=29)
 class TokenInfo(BaseModel):
     token:str
     device_info:str
     ip_address:str
 class Profile(BaseModel):
-    username:str
+    username:str=Field(min_length=4, max_length=29)
     image:str
 class Private(BaseModel):
     username:str

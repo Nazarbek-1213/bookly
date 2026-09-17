@@ -239,7 +239,7 @@ const API = {
   createPost: (form) => api('/post/post', { method: 'POST', form }),
   updatePost: (id, form) => api(`/post/put/${id}`, { method: 'PUT', form }),
   deletePost: (id) => api(`/post/delete/${id}`, { method: 'DELETE' }),
-  feed: (author_id) => api(`/post/see/${author_id}`),
+  feed: () => api('/post/see/'),
 
   // ---- review
   comments: (book_id) => api('/review/see/comments', { query: { book_id } }),
@@ -927,9 +927,9 @@ async function submitPostEditor(form) {
 }
 
 /* ============================== FEED PAGE =========================== */
-/* /post/see/{author_id} bitta muallifning postlarini qaytaradi (faqat men uni
-   ACCEPTED holatda kuzatsam). Shuning uchun lentani kuzatilayotganlar ro'yxati
-   bo'yicha yig'amiz. Followings ro'yxatida id yo'q -> id'ni /user/search dan olamiz. */
+/* /post/see/ javobi: [{ author: username, post: image_url, time: created_at }].
+   Ilovaning qolgan qismi { image_url, created_at, author_id } kutadi -> moslashtiramiz.
+   Javobda faqat username bor; profil havolasi uchun id kerak -> /user/search dan olamiz. */
 const idByUsername = new Map();
 async function userIdByUsername(username) {
   if (idByUsername.has(username)) return idByUsername.get(username);
@@ -943,21 +943,25 @@ async function userIdByUsername(username) {
   return id;
 }
 async function loadFeedPosts() {
-  let following = [];
-  try { following = await API.myFollowings(); } catch { return []; }
-  if (!Array.isArray(following) || !following.length) return [];
-  const ids = await Promise.all(following.map(u => userIdByUsername(u.username)));
-  const chunks = await Promise.all(ids.map(async (id) => {
-    if (!id) return [];
-    try {
-      const list = await API.feed(id);
-      const arr = Array.isArray(list) ? list : [];
-      /* BookResponce author_id qaytarmaydi - kimdan so'raganimizni bilamiz, shuni qo'yamiz */
-      arr.forEach(p => { if (p.author_id === undefined || p.author_id === null) p.author_id = id; });
-      return arr;
-    } catch { return []; }
+  const list = await API.feed();
+  if (!Array.isArray(list)) return [];
+  const posts = list.map(p => ({
+    ...p,
+    image_url: p.image_url ?? p.post ?? '',
+    created_at: p.created_at ?? p.time ?? null,
+    author_username: p.author ?? p.author_username ?? null,
   }));
-  return chunks.flat();
+  /* username -> id (keshlanadi, har bir muallif uchun bir marta) */
+  const names = [...new Set(posts.map(p => p.author_username).filter(Boolean))];
+  const ids = await Promise.all(names.map(n => userIdByUsername(n)));
+  const byName = new Map(names.map((n, i) => [n, ids[i]]));
+  posts.forEach(p => {
+    if ((p.author_id === undefined || p.author_id === null) && p.author_username) {
+      const id = byName.get(p.author_username);
+      if (id) p.author_id = id;
+    }
+  });
+  return posts;
 }
 
 async function renderFeed() {
@@ -985,7 +989,11 @@ async function renderFeed() {
       </div>`;
     return;
   }
-  const authors = await Promise.all(posts.map(p => getUser(p.author_id)));
+  const authors = await Promise.all(posts.map(async p => {
+    const u = await getUser(p.author_id);
+    /* id topilmasa ham javobdagi username ni ko'rsatamiz */
+    return (u && u.missing && p.author_username) ? { ...u, username: p.author_username } : u;
+  }));
   await Promise.all(posts.map(p => state.likeCounts.has(String(p.id)) ? null : loadLikeCount(p.id)));
   if (state.route.name !== 'feed') return;
   feedEl.innerHTML = posts.map((p, i) => postCardHtml(p, authors[i])).join('');

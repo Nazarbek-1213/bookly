@@ -27,6 +27,12 @@ def get_user_by_name(db:db_dependency,username:str):
 
 def re_enter_pswd(password1:str,password2:str):
    if password1==password2:
+      if len(password1)<8:
+         raise HTTPException(
+            status_code=403,
+            detail='the password length should be at least 8 characters'
+         )
+      
       return True
    else:
       raise HTTPException(
@@ -59,6 +65,11 @@ async def create_user( db: db_dependency,
         password1=password,
         password2=password2
     )
+    if password==username or password==email[0:-10]:
+       raise HTTPException(
+          status_code=403,
+          detail='password should be different from username or email'
+       )
 
     firebase_url=None
     if file:       

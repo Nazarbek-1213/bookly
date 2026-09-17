@@ -58,11 +58,21 @@ def searchUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)
          image_url=search.image_url,
          email=search.email,
          bio=search.bio,
-         posts=search.books,
          count_posts=post_counts,
          follower_count=follower_count,
-         following_count=following_count
-     )
+         following_count=following_count,
+         posts=[
+                     {    'id':book.id,
+                          'title':book.title,
+                          'description':book.description,
+                          'image_url':book.image_url,
+                          'author_id':book.author_id
+                          
+                     }
+                     for book in search.books
+                  ]
+                    )
+     
     elif search.account_type==Accounttype.PRIVATE_ACCOUNT:
          
          return PrivateUserResponse(
@@ -185,26 +195,37 @@ def GetAccountInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_depen
     post_counts = db.query(Book).filter(user.id == Book.author_id).count()
     current_user=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.following_id==user_id,Follower.status==FollowRequest.ACCEPTED,Follower.follower_id==token_obj.user_id).first()
     
-    if user.account_type==Accounttype.PRIVATE_ACCOUNT:
-                return PrivateUserResponse(
-                    id=user.id,
-                    username=user.username,
-                    count_posts=post_counts,
-                    following_count=following_count,
-                    follower_count=follower_count
-                )
-    elif user.account_type==Accounttype.PUBLIC_ACCOUNT or current_user:
+    
+    if user.account_type==Accounttype.PUBLIC_ACCOUNT or current_user:
             return PublicUserResponse(
                 id=user.id,
                 username=user.username,
                 image_url=user.image_url,
                 email=user.email,
                 bio=user.bio,
-                posts=user.books,
                 count_posts=post_counts,
                 following_count=following_count,
-                follower_count=follower_count       
+                follower_count=follower_count,
+                 posts=[
+                            {    'id':book.id,
+                                 'title':book.title,
+                                 'description':book.description,
+                                 'image_url':book.image_url,
+                                 'author_id':book.author_id
+                                 
+                            }
+                            for book in user.books
+                         ]
+                  
             )
+    if user.account_type==Accounttype.PRIVATE_ACCOUNT:
+                    return PrivateUserResponse(
+                        id=user.id,
+                        username=user.username,
+                        count_posts=post_counts,
+                        following_count=following_count,
+                        follower_count=follower_count
+                    )
     
          
 
