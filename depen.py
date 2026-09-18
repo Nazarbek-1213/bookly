@@ -13,8 +13,6 @@ from datetime import datetime
 import uuid
 import aiofiles
 
-
-
 def get_db():
     db=SessionLocal()
     try:
@@ -50,7 +48,6 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 async def uploadpic (file:UploadFile):
     
-    original_filename = file.filename
     file_ext=file.filename.split('.')[-1].lower()
     allowed_extensions=['jpg','jpeg','png','webp']
     if file_ext not in allowed_extensions:
