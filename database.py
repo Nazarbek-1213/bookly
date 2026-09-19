@@ -94,4 +94,13 @@ class Follower(Base):
     follower_user = relationship("User", foreign_keys=[follower_id], back_populates="following_rel")
     following_user = relationship("User", foreign_keys=[following_id], back_populates="followers_rel")
 
+class OTP(Base):
+    __tablename__='otpcodes'
+    id=Column(Integer,primary_key=True, autoincrement=True)
+    otpcode=Column(Integer,nullable=False)
+    user_id=Column(Integer,ForeignKey('users.id',ondelete='CASCADE'))
+    created_at=Column(DateTime,default=datetime.now)
+    expiration_time = Column(DateTime,default=lambda: datetime.now() + timedelta(minutes=5))
+    is_used=Column(Boolean,default=False)
+
 Base.metadata.create_all(engine)

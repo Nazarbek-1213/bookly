@@ -229,6 +229,9 @@ const API = {
   // ---- auth
   register: (form) => api('/auth/registration/', { method: 'POST', form, auth: false }),
   login: (username, password) => api('/auth/login', { method: 'POST', form: { username, password }, auth: false }),
+  forgotPassword: (username) => api('/auth/forgot-password', { method: 'POST', query: { username }, auth: false }),
+  verifyOtp: (email, code, password, password2) =>
+    api('/auth/verify-otp', { method: 'POST', query: { email, code }, body: { password, password2 }, auth: false }),
   logout: () => api('/auth/logout', { method: 'POST' }),
   deleteAccount: () => api('/auth/delete-account', { method: 'DELETE' }),
   editInfo: (form) => api('/auth/EditInfo', { method: 'PUT', form }),
@@ -422,6 +425,8 @@ function showApp() {
 function renderAuth(mode) {
   const s = $('#auth-screen');
   const isLogin = mode === 'login';
+  const isForgot = mode === 'forgot';
+  const isReset = mode === 'reset';
   s.innerHTML = `
     <div class="auth-box">
       <div class="auth-card">
@@ -432,6 +437,24 @@ function renderAuth(mode) {
             <input class="input" name="password" type="password" placeholder="Parol" autocomplete="current-password" required>
             <div class="error-text" data-error></div>
             <button class="btn btn-block" type="submit">Kirish</button>
+          </form>
+          <button class="btn-link auth-recovery-link" type="button" data-action="auth-forgot">Parolni unutdingizmi?</button>
+        ` : isForgot ? `
+          <p class="auth-tagline">Username kiriting, parolni tiklash kodi emailingizga yuboriladi.</p>
+          <form data-form="forgot-password" novalidate>
+            <input class="input" name="username" placeholder="Foydalanuvchi nomi" autocomplete="username" required>
+            <div class="error-text" data-error></div>
+            <button class="btn btn-block" type="submit">Kodni yuborish</button>
+          </form>
+        ` : isReset ? `
+          <p class="auth-tagline">Emailga kelgan kod va yangi parolni kiriting.</p>
+          <form data-form="verify-otp" novalidate>
+            <input class="input" name="email" type="email" placeholder="Email" autocomplete="email" required>
+            <input class="input" name="code" inputmode="numeric" placeholder="OTP kod" autocomplete="one-time-code" required>
+            <input class="input" name="password" type="password" placeholder="Yangi parol" autocomplete="new-password" required>
+            <input class="input" name="password2" type="password" placeholder="Yangi parolni tasdiqlang" autocomplete="new-password" required>
+            <div class="error-text" data-error></div>
+            <button class="btn btn-block" type="submit">Parolni tiklash</button>
           </form>
         ` : `
           <p class="auth-tagline">Do'stlaringizning kitoblarini ko'rish uchun ro'yxatdan o'ting.</p>
@@ -456,6 +479,8 @@ function renderAuth(mode) {
       <div class="auth-switch">
         ${isLogin
           ? `Hisobingiz yo'qmi? <button class="btn-link" type="button" data-action="auth-switch" data-mode="register">Ro'yxatdan o'tish</button>`
+          : (isForgot || isReset)
+            ? `<button class="btn-link" type="button" data-action="auth-switch" data-mode="login">Kirishga qaytish</button>`
           : `Hisobingiz bormi? <button class="btn-link" type="button" data-action="auth-switch" data-mode="login">Kirish</button>`}
       </div>
       <div class="auth-footer">© ${new Date().getFullYear()} Bookly</div>
@@ -508,6 +533,40 @@ async function handleRegister(form) {
     renderAuth('login');
     const lf = $('form[data-form=login]');
     if (lf) lf.username.value = username;
+  } catch (e) {
+    err.textContent = e.message;
+  } finally { btn.disabled = false; }
+}
+async function handleForgotPassword(form) {
+  const err = $('[data-error]', form);
+  const btn = $('button[type=submit]', form);
+  err.textContent = '';
+  const username = form.username.value.trim();
+  if (!username) { err.textContent = 'Foydalanuvchi nomini kiriting.'; return; }
+  btn.disabled = true;
+  try {
+    await API.forgotPassword(username);
+    toast('OTP kodi emailingizga yuborildi.');
+    renderAuth('reset');
+  } catch (e) {
+    err.textContent = e.message;
+  } finally { btn.disabled = false; }
+}
+async function handleVerifyOtp(form) {
+  const err = $('[data-error]', form);
+  const btn = $('button[type=submit]', form);
+  err.textContent = '';
+  const email = form.email.value.trim();
+  const code = form.code.value.trim();
+  const password = form.password.value;
+  const password2 = form.password2.value;
+  if (!email || !code || !password || !password2) { err.textContent = "Barcha maydonlarni to'ldiring."; return; }
+  if (password !== password2) { err.textContent = 'Parollar mos kelmadi.'; return; }
+  btn.disabled = true;
+  try {
+    await API.verifyOtp(email, code, password, password2);
+    toast('Parol yangilandi. Endi kiring.');
+    renderAuth('login');
   } catch (e) {
     err.textContent = e.message;
   } finally { btn.disabled = false; }
@@ -1476,6 +1535,7 @@ async function deleteAccount() {
 /* ============================== EVENT WIRING ======================== */
 const actions = {
   'auth-switch': (el) => renderAuth(el.dataset.mode),
+  'auth-forgot': () => renderAuth('forgot'),
   'modal-close': (el) => closeModal(el.closest('.modal-backdrop')),
   'open-create': () => openPostEditor(),
   'logout': () => doLogout(),
@@ -1503,6 +1563,8 @@ const actions = {
 const forms = {
   'login': handleLogin,
   'register': handleRegister,
+  'forgot-password': handleForgotPassword,
+  'verify-otp': handleVerifyOtp,
   'comment': submitComment,
   'comment-edit': submitCommentEdit,
   'post-editor': submitPostEditor,

@@ -12,6 +12,7 @@ class UserIn(BaseModel):
     email:str
     bio: str | None = Field(default=None, max_length=300)
     image_url:str|None
+    
 
 class Userdb(UserIn):
     password:str=Field(min_length=8, max_length=29)
@@ -70,3 +71,7 @@ class PrivateUserResponse (BaseModel):
     count_posts:int
     follower_count:int
     following_count:int
+
+class Renewpassword(BaseModel):
+    password:str=Field(min_length=8, max_length=29)
+    password2:str=Field(min_length=8, max_length=29)
