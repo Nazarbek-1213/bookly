@@ -12,6 +12,9 @@ class UserIn(BaseModel):
     email:str
     bio: str | None = Field(default=None, max_length=300)
     image_url:str|None
+    status: str
+    message: str
+    expires_in: str
     
 
 class Userdb(UserIn):

@@ -103,4 +103,6 @@ class OTP(Base):
     expiration_time = Column(DateTime,default=lambda: datetime.now() + timedelta(minutes=5))
     is_used=Column(Boolean,default=False)
 
+
+
 Base.metadata.create_all(engine)

@@ -58,7 +58,11 @@ def create_otp_user(email:str,db:db_dependency):
    return usercode
 
 
-def send_otp_email(email: str, code: str) -> bool:
+def user_has_verified_otp(db: db_dependency, user_id: int) :
+    return db.query(OTP).filter(OTP.user_id == user_id, OTP.is_used == True).first() is not None
+
+
+def send_otp_email(email: str, code: str):
     subject = "Your OTP Code"
     body = f"Your OTP code is: {code}\nExpires in 5 minutes."
     message = f"Subject: {subject}\n\n{body}"
@@ -133,8 +137,7 @@ async def create_user( db: db_dependency,
     )
 
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+   
 
     create_otp=create_otp_user(email=email,db=db)
     send_otp=send_otp_email(email=email,code=(create_otp))
@@ -142,13 +145,28 @@ async def create_user( db: db_dependency,
            raise HTTPException(
               detail='otpda xatolik'
            )    
-    
+    if not send_otp:
+        db.rollback()
 
+        raise HTTPException(
+            status_code=500,
+            detail="OTP yuborishda xatolik"
+        )
+    
+    db.commit()
+    db.refresh(new_user)
+    
     return {
-           "status": "success",
-           "message": f"OTP {email}'ga jo'natildi",
-           "expires_in": "5 minutes",
-       }
+     "username": new_user.username,
+    "email": new_user.email,
+    "bio": new_user.bio,
+    "image_url": new_user.image_url,
+    "status": "success",
+    "message": f"OTP {email}'ga jo'natildi",
+    "expires_in": "5 minutes",
+}
+   
+       
 
 @router.post('/verify-otp',tags=['auth'])
 def validate_otp(db:db_dependency,email:str,code:int,password:Renewpassword):
@@ -162,7 +180,8 @@ def validate_otp(db:db_dependency,email:str,code:int,password:Renewpassword):
    record=db.query(OTP).filter(OTP.is_used==False,OTP.user_id==user.id,OTP.otpcode==code).first()
    if not record:
        raise HTTPException(
-           detail='otpda xatolik'
+           detail='otpda xatolik',
+           status_code=500
        )
   
    if record.expiration_time<datetime.now():
@@ -200,6 +219,13 @@ def Login(db:db_dependency,request:Request,username:str=Form(...),password:str=F
          status_code=400,
          detail='registeration  needed'
       )   
+
+   otp_records = db.query(OTP).filter(OTP.user_id == user.id).first()
+   if otp_records is not None and not user_has_verified_otp(db, user.id):
+      raise HTTPException(
+         status_code=403,
+         detail='OTP verification required before login'
+      )
    
    check_password=password_verifier(plain=password,password=user.password)
    if not check_password:
@@ -242,14 +268,16 @@ def Logout(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)]):
         'messege':'account deleted successfully'
     }
 
-@router.put('/EditInfo',tags=['auth'],response_model=UserIn)
+@router.put('/EditInfo',tags=['auth'])
 async def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],username: str = Form(...),
     email: str = Form(...),
     bio: str = Form(None),
     file:UploadFile=File(None)):
     user=token_obj.user
-    firebase_url= await uploadpic(file)
-    user.username=username
+    if user:
+
+     firebase_url= await uploadpic(file)
+     user.username=username
     user.image_url=firebase_url
     user.email=email
     user.bio=bio

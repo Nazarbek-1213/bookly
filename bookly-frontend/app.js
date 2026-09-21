@@ -47,6 +47,8 @@ const state = {
   posts: new Map(),         // post id -> post object (feed + profile grids)
   route: { path: '/', params: {}, query: {} },
   modals: [],               // stack of modal elements
+  pendingRegistration: null, // { username, email, bio, password, password2 }
+  pendingLoginOtp: null,    // { username, password }
 };
 
 /* ============================== HELPERS ============================= */
@@ -412,6 +414,8 @@ async function doLogout() {
 }
 
 function showAuth(mode = 'login') {
+  if (mode !== 'register-otp') state.pendingRegistration = null;
+  if (mode !== 'login-otp') state.pendingLoginOtp = null;
   $('#layout').hidden = true;
   const s = $('#auth-screen');
   s.hidden = false;
@@ -427,6 +431,9 @@ function renderAuth(mode) {
   const isLogin = mode === 'login';
   const isForgot = mode === 'forgot';
   const isReset = mode === 'reset';
+  const isRegisterOtp = mode === 'register-otp';
+  const isLoginOtp = mode === 'login-otp';
+  const regData = state.pendingRegistration || {};
   s.innerHTML = `
     <div class="auth-box">
       <div class="auth-card">
@@ -456,6 +463,20 @@ function renderAuth(mode) {
             <div class="error-text" data-error></div>
             <button class="btn btn-block" type="submit">Parolni tiklash</button>
           </form>
+        ` : (isRegisterOtp || isLoginOtp) ? `
+          <div class="otp-panel">
+            <div class="otp-badge">OTP tasdiqlash</div>
+            <p class="auth-tagline otp-title">${isLoginOtp ? 'Kirishdan oldin emailingizdagi OTP kodini tasdiqlang.' : 'Emailingizga 6 xonali kod yuborildi.'}</p>
+            ${isRegisterOtp ? `<div class="otp-email">${esc(regData.email || '')}</div>` : ''}
+            <form data-form="${isLoginOtp ? 'login-otp' : 'register-otp'}" novalidate>
+              <input class="input" name="email" type="email" value="${esc(regData.email || '')}" placeholder="Email" autocomplete="email" required>
+              <input class="input" name="code" inputmode="numeric" placeholder="OTP kod" autocomplete="one-time-code" required>
+              <input class="input" name="password" type="password" value="${esc(regData.password || '')}" placeholder="${isLoginOtp ? 'Parol' : 'Parol'}" autocomplete="new-password" required>
+              <input class="input" name="password2" type="password" value="${esc(regData.password2 || '')}" placeholder="Parolni tasdiqlang" autocomplete="new-password" required>
+              <div class="error-text" data-error></div>
+              <button class="btn btn-block" type="submit">OTPni tasdiqlash</button>
+            </form>
+          </div>
         ` : `
           <p class="auth-tagline">Do'stlaringizning kitoblarini ko'rish uchun ro'yxatdan o'ting.</p>
           <form data-form="register" novalidate>
@@ -479,12 +500,13 @@ function renderAuth(mode) {
       <div class="auth-switch">
         ${isLogin
           ? `Hisobingiz yo'qmi? <button class="btn-link" type="button" data-action="auth-switch" data-mode="register">Ro'yxatdan o'tish</button>`
-          : (isForgot || isReset)
+          : (isForgot || isReset || isRegisterOtp || isLoginOtp)
             ? `<button class="btn-link" type="button" data-action="auth-switch" data-mode="login">Kirishga qaytish</button>`
           : `Hisobingiz bormi? <button class="btn-link" type="button" data-action="auth-switch" data-mode="login">Kirish</button>`}
       </div>
       <div class="auth-footer">© ${new Date().getFullYear()} Bookly</div>
     </div>`;
+
 }
 
 async function handleLogin(form) {
@@ -504,7 +526,13 @@ async function handleLogin(form) {
     await bootApp();
     toast(`Xush kelibsiz, ${username}!`);
   } catch (e) {
-    err.textContent = e.message;
+    if (String(e.message || '').toLowerCase().includes('otp verification required')) {
+      state.pendingLoginOtp = { username, password };
+      toast('Avval emailingizdagi OTP kodini tasdiqlang.');
+      renderAuth('login-otp');
+    } else {
+      err.textContent = e.message;
+    }
   } finally { btn.disabled = false; }
 }
 async function handleRegister(form) {
@@ -529,10 +557,60 @@ async function handleRegister(form) {
   btn.disabled = true;
   try {
     await API.register(fd);
-    toast("Ro'yxatdan o'tdingiz! Endi kiring.");
+    state.pendingRegistration = { username, email, bio, password, password2 };
+    toast("Ro'yxatdan o'tdingiz! Emailingizga OTP kodi yuborildi.");
+    renderAuth('register-otp');
+  } catch (e) {
+    err.textContent = e.message;
+  } finally { btn.disabled = false; }
+}
+
+async function handleRegisterOtp(form) {
+  const err = $('[data-error]', form);
+  const btn = $('button[type=submit]', form);
+  err.textContent = '';
+  const email = form.email.value.trim();
+  const code = form.code.value.trim();
+  const password = form.password.value;
+  const password2 = form.password2.value;
+  const regUser = state.pendingRegistration && state.pendingRegistration.username ? state.pendingRegistration.username : '';
+  if (!email || !code || !password || !password2) { err.textContent = "Barcha maydonlarni to'ldiring."; return; }
+  if (password !== password2) { err.textContent = 'Parollar mos kelmadi.'; return; }
+  btn.disabled = true;
+  try {
+    await API.verifyOtp(email, code, password, password2);
+    const loginUser = regUser || email;
+    state.pendingRegistration = null;
+    toast("Ro'yxatdan o'tish tasdiqlandi. Endi kiring.");
     renderAuth('login');
     const lf = $('form[data-form=login]');
-    if (lf) lf.username.value = username;
+    if (lf && lf.username) lf.username.value = loginUser;
+  } catch (e) {
+    err.textContent = e.message;
+  } finally { btn.disabled = false; }
+}
+async function handleLoginOtp(form) {
+  const err = $('[data-error]', form);
+  const btn = $('button[type=submit]', form);
+  err.textContent = '';
+  const email = form.email.value.trim();
+  const code = form.code.value.trim();
+  const password = form.password.value;
+  const password2 = form.password2.value;
+  const loginData = state.pendingLoginOtp;
+  if (!loginData) { renderAuth('login'); return; }
+  if (!email || !code || !password || !password2) { err.textContent = "Barcha maydonlarni to'ldiring."; return; }
+  if (password !== password2) { err.textContent = 'Parollar mos kelmadi.'; return; }
+  btn.disabled = true;
+  try {
+    await API.verifyOtp(email, code, password, password2);
+    const tok = await API.login(loginData.username, password);
+    const token = tok && tok[CONFIG.TOKEN_FIELD];
+    if (!token) throw new ApiError(`Javobda "${CONFIG.TOKEN_FIELD}" maydoni topilmadi.`, 0, tok);
+    state.pendingLoginOtp = null;
+    saveSession(token, tok[CONFIG.USER_ID_FIELD]);
+    await bootApp();
+    toast(`Xush kelibsiz, ${loginData.username}!`);
   } catch (e) {
     err.textContent = e.message;
   } finally { btn.disabled = false; }
@@ -1534,8 +1612,16 @@ async function deleteAccount() {
 
 /* ============================== EVENT WIRING ======================== */
 const actions = {
-  'auth-switch': (el) => renderAuth(el.dataset.mode),
-  'auth-forgot': () => renderAuth('forgot'),
+  'auth-switch': (el) => {
+    if (el.dataset.mode !== 'register-otp') state.pendingRegistration = null;
+    if (el.dataset.mode !== 'login-otp') state.pendingLoginOtp = null;
+    renderAuth(el.dataset.mode);
+  },
+  'auth-forgot': () => {
+    state.pendingRegistration = null;
+    state.pendingLoginOtp = null;
+    renderAuth('forgot');
+  },
   'modal-close': (el) => closeModal(el.closest('.modal-backdrop')),
   'open-create': () => openPostEditor(),
   'logout': () => doLogout(),
@@ -1563,6 +1649,8 @@ const actions = {
 const forms = {
   'login': handleLogin,
   'register': handleRegister,
+  'register-otp': handleRegisterOtp,
+  'login-otp': handleLoginOtp,
   'forgot-password': handleForgotPassword,
   'verify-otp': handleVerifyOtp,
   'comment': submitComment,
