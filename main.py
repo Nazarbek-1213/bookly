@@ -29,8 +29,7 @@ app.include_router(review_router)
 app.mount(
     "/uploads",
     StaticFiles(directory=os.path.join(BASE_DIR, "uploads")),
-    name="uploads",
-)
+    name="uploads",)
 
 
 

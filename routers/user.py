@@ -306,11 +306,6 @@ def GetAllFollowings(token_obj:Annotated[Token,Depends(token_checker)],db:db_dep
           for  user in current_user
      ]
 
-
-     
-     
-     
-
 # ------------- SESSION ---------------------
 @router.get('/sessions/all',tags=['Sessions'],response_model=list[SessionResponse])
 def Sessionall(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):

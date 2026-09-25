@@ -135,6 +135,10 @@ async def create_user( db: db_dependency,
         bio=bio,
         
     )
+    if len(username)<5:
+        raise HTTPException(
+            detail='minimum username length should be 5 characters',
+            status_code=400        )
 
     db.add(new_user)
    
@@ -143,7 +147,8 @@ async def create_user( db: db_dependency,
     send_otp=send_otp_email(email=email,code=(create_otp))
     if not send_otp:
            raise HTTPException(
-              detail='otpda xatolik'
+              detail='otpda xatolik',
+              status_code=500
            )    
     if not send_otp:
         db.rollback()
@@ -186,7 +191,8 @@ def validate_otp(db:db_dependency,email:str,code:int,password:Renewpassword):
   
    if record.expiration_time<datetime.now():
       raise HTTPException(
-          detail='resend code,code time expired'
+          detail='resend code,code time expired',
+          status_code=400
       )     
    record.is_used = True
    db.commit()
@@ -209,16 +215,15 @@ def validate_otp(db:db_dependency,email:str,code:int,password:Renewpassword):
 @router.post('/login',response_model=TokenInfo,tags=['auth'])
 def Login(db:db_dependency,request:Request,username:str=Form(...),password:str=Form(...)):   
    user=db.query(User).filter(User.username==username).first()
-   if not user:
-         raise HTTPException(
-            status_code=403,
-            detail='resend otp'
-         )
    if not  user:
       raise HTTPException(
          status_code=400,
          detail='registeration  needed'
-      )   
+      )
+   if len(username)<5:
+           raise HTTPException(
+               detail='minimum username length should be 5 characters',
+                  status_code=403   )
 
    otp_records = db.query(OTP).filter(OTP.user_id == user.id).first()
    if otp_records is not None and not user_has_verified_otp(db, user.id):
@@ -275,12 +280,20 @@ async def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_chec
     file:UploadFile=File(None)):
     user=token_obj.user
     if user:
-
-     firebase_url= await uploadpic(file)
-     user.username=username
-    user.image_url=firebase_url
-    user.email=email
-    user.bio=bio
+     if file is not None:   
+      firebase_url= await uploadpic(file)
+      user.image_url=firebase_url
+     if username is not None:
+      user.username=username
+     if email is not None:    
+      user.email=email
+     if bio is not None:
+      user.bio=bio
+    if len(username)<5:
+        raise HTTPException(
+            detail='minimum username length should be 5 characters',
+            status_code=400
+        )
     db.commit()
     db.refresh(user)
     return user
