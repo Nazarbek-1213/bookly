@@ -43,7 +43,7 @@ def token_checker(db:db_dependency,token:Annotated[str,Depends(oauth2_scheme)]):
    return token_obj
 
 
-UPLOAD_DIR = 'D:\\bookly\\uploads'
+UPLOAD_DIR = "/app/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 async def uploadpic (file:UploadFile):

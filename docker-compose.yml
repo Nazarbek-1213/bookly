@@ -1,0 +1,45 @@
+services:
+
+  backend:
+    build: .
+    container_name: bookly-backend
+    expose:
+      - "8000"
+    env_file:
+      - .env
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+
+  frontend:
+    build: ./bookly-frontend
+    container_name: bookly-frontend
+    expose:
+      - "80"
+    depends_on:
+      - backend
+
+  postgres:
+    image: postgres:16
+    container_name: bookly-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: safarov2
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  nginx:
+    image: nginx:alpine
+    container_name: bookly-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  postgres_data:

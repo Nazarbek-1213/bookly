@@ -2,7 +2,9 @@
 
 /* ============================== CONFIG ============================== */
 const CONFIG = {
-  BASE_URL: 'http://localhost:8000',
+  BASE_URL: ['8080', '5500'].includes(window.location.port)
+    ? `${window.location.protocol}//${window.location.hostname}:8000`
+    : '',
   TOKEN_FIELD: 'token',        // field of the login response that holds the token
   USER_ID_FIELD: 'user_id',    // field of the login response that holds my user id
   STORAGE: {
@@ -231,14 +233,14 @@ const API = {
   // ---- auth
   register: (form) => api('/auth/registration/', { method: 'POST', form, auth: false }),
   login: (username, password) => api('/auth/login', { method: 'POST', form: { username, password }, auth: false }),
-  forgotPassword: (username) => api('/auth/forgot-password', { method: 'POST', query: { username }, auth: false }),
+  forgotPassword: (username) => api('/auth/forgot-password/', { method: 'POST', query: { username }, auth: false }),
   verifyOtp: (email, code, password, password2) =>
-    api('/auth/verify-otp', { method: 'POST', query: { email, code }, body: { password, password2 }, auth: false }),
-  logout: () => api('/auth/logout', { method: 'POST' }),
+    api('/auth/verify-otp/', { method: 'POST', query: { email, code }, body: { password, password2 }, auth: false }),
+  logout: () => api('/auth/logout/', { method: 'POST' }),
   deleteAccount: () => api('/auth/delete-account', { method: 'DELETE' }),
-  editInfo: (form) => api('/auth/EditInfo', { method: 'PUT', form }),
+  editInfo: (form) => api('/auth/edit/', { method: 'PUT', form }),
   changePassword: (old_password, password, password2) =>
-    api('/auth/change-password', { method: 'PATCH', body: { old_password, password, password2 } }),
+    api('/auth/change-password/', { method: 'PATCH', body: { old_password, password, password2 } }),
 
   // ---- post
   createPost: (form) => api('/post/post', { method: 'POST', form }),

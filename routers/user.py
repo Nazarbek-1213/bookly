@@ -42,13 +42,14 @@ def searchUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)
     user=token_obj.user
     if user:
      search=db.query(User).filter(User.username==username.strip()).first()
+     if not search:
+              raise HTTPException(status_code=404,detail="User not found")
      current_user=db.query(User).join(Follower,Follower.following_id==User.id).filter(Follower.following_id==search.id,Follower.status==FollowRequest.ACCEPTED,Follower.follower_id==user.id).first()
      follower_count=db.query(Follower).filter(search.id==Follower.follower_id,Follower.status==FollowRequest.ACCEPTED).count()
      following_count=db.query(Follower).filter(search.id==Follower.following_id,Follower.status==FollowRequest.ACCEPTED).count()
      post_counts = db.query(Book).filter(search.id == Book.author_id).count()
 
-     if not search:
-         raise HTTPException(status_code=404,detail="User not found")
+     
     
     if search.account_type==Accounttype.PUBLIC_ACCOUNT or current_user:
          
@@ -300,6 +301,7 @@ def GetAllFollowings(token_obj:Annotated[Token,Depends(token_checker)],db:db_dep
           )
      return [
           {
+          
                'username':user.username,
                'image_url':user.image_url
           }

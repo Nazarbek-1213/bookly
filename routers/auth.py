@@ -173,7 +173,7 @@ async def create_user( db: db_dependency,
    
        
 
-@router.post('/verify-otp',tags=['auth'])
+@router.post('/verify-otp/',tags=['auth'])
 def validate_otp(db:db_dependency,email:str,code:int,password:Renewpassword):
    user=db.query(User).filter(User.email==email).first()
    if not user:
@@ -257,7 +257,7 @@ def Login(db:db_dependency,request:Request,username:str=Form(...),password:str=F
    return token_gen
  
 
-@router.post('/logout',tags=['auth'])
+@router.post('/logout/',tags=['auth'])
 def Logout(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)]):
        token_obj.is_active=False
        db.commit()
@@ -273,7 +273,7 @@ def Logout(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)]):
         'messege':'account deleted successfully'
     }
 
-@router.put('/EditInfo',tags=['auth'])
+@router.put('/edit/',tags=['auth'])
 async def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],username: str = Form(...),
     email: str = Form(...),
     bio: str = Form(None),
@@ -298,7 +298,7 @@ async def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_chec
     db.refresh(user)
     return user
 
-@router.patch('/change-password',tags=['auth'])
+@router.patch('/change-password/',tags=['auth'])
 def PasswordChange(db:db_dependency,token_obj:Annotated[Token,Depends(token_checker)],password:Changepassword):
     user=token_obj.user
     if user:
@@ -319,7 +319,7 @@ def PasswordChange(db:db_dependency,token_obj:Annotated[Token,Depends(token_chec
     return user
 
 
-@router.post('/forgot-password',tags=['auth'])
+@router.post('/forgot-password/',tags=['auth'])
 def ForgotPswd(db:db_dependency,username:str):
      user=db.query(User).filter(User.username==username).first()
      if not user:
@@ -339,21 +339,3 @@ def ForgotPswd(db:db_dependency,username:str):
                 "message": f"OTP {user.email[4:-1]}'ga jo'natildi",
                 "expires_in": "5 minutes",
             }
-
-
-
-    
-
-
-
-
-
-
-
-    
-        
-
-
-
-
-

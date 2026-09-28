@@ -4,7 +4,6 @@ from model import UserIn,Private,BookResponce
 from database import User,Token,Follower,Accounttype,Book,FollowRequest
 from typing import Annotated
 
-
 router=APIRouter(prefix='/post')
 
 @router.post('/post',response_model=BookResponce,tags=['post'])
@@ -63,14 +62,3 @@ def PostSee(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
       f_ids.append(f.following_id)      
   posts=db.query(Book).filter(Book.author_id.in_(f_ids)).order_by(Book.created_at.desc()).all()
   return posts
-
-
-
-
-
-
-    
-
-
-
-
