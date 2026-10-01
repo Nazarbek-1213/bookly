@@ -246,7 +246,7 @@ const API = {
   createPost: (form) => api('/post/post', { method: 'POST', form }),
   updatePost: (id, form) => api(`/post/put/${id}`, { method: 'PUT', form }),
   deletePost: (id) => api(`/post/delete/${id}`, { method: 'DELETE' }),
-  feed: () => api('/post/see/'),
+  feed: (page = 1, limit = 10) => api('/post/see/', { query: { page, limit } }),
 
   // ---- review
   comments: (book_id) => api('/review/see/comments', { query: { book_id } }),
@@ -1081,8 +1081,9 @@ async function userIdByUsername(username) {
   idByUsername.set(username, id);
   return id;
 }
-async function loadFeedPosts() {
-  const list = await API.feed();
+const FEED_PAGE_SIZE = 10;
+async function loadFeedPosts(page = 1) {
+  const list = await API.feed(page, FEED_PAGE_SIZE);
   if (!Array.isArray(list)) return [];
   const posts = list.map(p => ({
     ...p,
@@ -1103,6 +1104,21 @@ async function loadFeedPosts() {
   return posts;
 }
 
+async function renderFeedPosts(posts, feedEl, before = null) {
+  posts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  posts.forEach(p => { if (p.id !== undefined && p.id !== null) state.posts.set(String(p.id), p); });
+  const authors = await Promise.all(posts.map(async p => {
+    const u = await getUser(p.author_id);
+    return (u && u.missing && p.author_username) ? { ...u, username: p.author_username } : u;
+  }));
+  await Promise.all(posts.map(p => state.likeCounts.has(String(p.id)) ? null : loadLikeCount(p.id)));
+  if (state.route.name !== 'feed' || !feedEl.isConnected) return false;
+  const cards = posts.map((p, i) => postCardHtml(p, authors[i])).join('');
+  if (before && before.isConnected) before.insertAdjacentHTML('beforebegin', cards);
+  else feedEl.insertAdjacentHTML('beforeend', cards);
+  return true;
+}
+
 async function renderFeed() {
   const page = $('#page');
   page.innerHTML = `
@@ -1114,10 +1130,8 @@ async function renderFeed() {
 
   const feedEl = $('[data-feed]', page);
   let posts = [];
-  try { posts = await loadFeedPosts(); } catch (e) { feedEl.innerHTML = `<div class="error-text">${esc(e.message)}</div>`; return; }
+  try { posts = await loadFeedPosts(1); } catch (e) { feedEl.innerHTML = `<div class="error-text">${esc(e.message)}</div>`; return; }
   if (!Array.isArray(posts)) posts = [];
-  posts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  posts.forEach(p => { if (p.id !== undefined && p.id !== null) state.posts.set(String(p.id), p); });
   if (!posts.length) {
     feedEl.innerHTML = `
       <div class="empty">
@@ -1128,14 +1142,39 @@ async function renderFeed() {
       </div>`;
     return;
   }
-  const authors = await Promise.all(posts.map(async p => {
-    const u = await getUser(p.author_id);
-    /* id topilmasa ham javobdagi username ni ko'rsatamiz */
-    return (u && u.missing && p.author_username) ? { ...u, username: p.author_username } : u;
-  }));
-  await Promise.all(posts.map(p => state.likeCounts.has(String(p.id)) ? null : loadLikeCount(p.id)));
-  if (state.route.name !== 'feed') return;
-  feedEl.innerHTML = posts.map((p, i) => postCardHtml(p, authors[i])).join('');
+  feedEl.innerHTML = '';
+  await renderFeedPosts(posts, feedEl);
+  if (state.route.name !== 'feed' || posts.length < FEED_PAGE_SIZE) return;
+
+  let currentPage = 1;
+  const moreWrap = document.createElement('div');
+  moreWrap.className = 'feed-more';
+  moreWrap.innerHTML = '<button class="btn btn-secondary" type="button" data-feed-more>Ko\'proq yuklash</button>';
+  feedEl.appendChild(moreWrap);
+  const moreButton = $('[data-feed-more]', moreWrap);
+  moreButton.addEventListener('click', async () => {
+    moreButton.disabled = true;
+    moreButton.innerHTML = `${spinner('sm')} Yuklanmoqda...`;
+    try {
+      const nextPage = currentPage + 1;
+      const nextPosts = await loadFeedPosts(nextPage);
+      if (state.route.name !== 'feed' || !feedEl.isConnected) return;
+      if (!nextPosts.length) { moreWrap.remove(); return; }
+      const rendered = await renderFeedPosts(nextPosts, feedEl, moreWrap);
+      if (!rendered) return;
+      currentPage = nextPage;
+      if (nextPosts.length < FEED_PAGE_SIZE) moreWrap.remove();
+      else {
+        moreButton.disabled = false;
+        moreButton.textContent = 'Ko\'proq yuklash';
+      }
+    } catch (e) {
+      if (!moreButton.isConnected) return;
+      toast(e.message, 'error');
+      moreButton.disabled = false;
+      moreButton.textContent = 'Ko\'proq yuklash';
+    }
+  });
 }
 function rightColHtml() {
   const me = state.me || {};

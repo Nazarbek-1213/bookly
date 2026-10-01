@@ -52,7 +52,8 @@ async def ChangeInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dep
     return bookid
 
 @router.get('/see/',response_model=list[BookResponce]| None ,tags=['post'])
-def PostSee(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
+def PostSee(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,page:int=1,limit:int=10):
+  offset=(page-1)*limit
   user=token_obj.user
   followed=db.query(Follower).filter(user.id==Follower.follower_id,Follower.status==FollowRequest.ACCEPTED).all()
   if not followed:
@@ -60,5 +61,5 @@ def PostSee(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency):
   f_ids=[]
   for f in followed:
       f_ids.append(f.following_id)      
-  posts=db.query(Book).filter(Book.author_id.in_(f_ids)).order_by(Book.created_at.desc()).all()
+  posts=db.query(Book).filter(Book.author_id.in_(f_ids)).order_by(Book.created_at.desc()).offset(offset).limit(limit).all()
   return posts
