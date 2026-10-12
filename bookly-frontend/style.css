@@ -393,6 +393,35 @@ textarea.input { resize: vertical; min-height: 80px; }
 /* detail modal (session) */
 .detail-text { white-space: pre-wrap; word-break: break-word; font-size: 14px; }
 
+/* ============ AI PAGE ============ */
+.ai-page { max-width: 1200px; margin: 0 auto; padding: 24px 20px 40px; }
+.ai-header { margin-bottom: 20px; }
+.page-title { margin: 10px 0 4px; font-size: clamp(28px, 3vw, 38px); line-height: 1.2; }
+.page-subtitle { margin: 0; color: var(--text-2); font-size: 15px; }
+.ai-grid { display: grid; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); gap: 20px; }
+.ai-upload-card, .ai-chat-card { min-height: 250px; }
+.ai-upload-form { display: flex; flex-direction: column; gap: 12px; }
+.ai-status {
+  margin-top: 16px; padding: 10px 12px; border-radius: 8px; background: var(--bg-soft); border: 1px solid var(--border-soft);
+  color: var(--text-2); font-size: 13px; line-height: 18px; word-break: break-word;
+}
+.ai-status.is-loading { color: var(--blue-dark); background: var(--blue-light); }
+.ai-chat { display: flex; flex-direction: column; gap: 12px; min-height: 260px; max-height: 420px; overflow-y: auto; padding: 12px; background: var(--bg-soft); border: 1px solid var(--border-soft); border-radius: 10px; }
+.ai-message { max-width: 85%; padding: 10px 12px; border-radius: 12px; line-height: 1.5; word-break: break-word; }
+.ai-message-user { margin-left: auto; background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+.ai-message-bot { margin-right: auto; background: #fff; border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.ai-message-error { margin-right: auto; background: #fff5f5; border: 1px solid #f7b4bb; color: var(--red); border-bottom-left-radius: 4px; }
+.ai-message-system { max-width: 100%; margin: 0; background: var(--blue-light); color: var(--text); border: 1px solid #cfe5ff; }
+.ai-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .75; margin-bottom: 4px; }
+.ai-answer { white-space: pre-wrap; }
+.ai-sources { margin-top: 10px; display: grid; gap: 8px; }
+.ai-source { padding: 8px 10px; border-radius: 8px; background: #f8f8f8; border: 1px solid var(--border-soft); }
+.ai-source span { display: inline-block; font-size: 11px; font-weight: 700; color: var(--blue-dark); margin-bottom: 4px; }
+.ai-source p { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.5; }
+.ai-chat-form { margin-top: 16px; display: flex; flex-direction: column; gap: 12px; }
+.ai-chat-actions { display: flex; justify-content: flex-end; }
+.ai-chat-form textarea { min-height: 110px; }
+
 /* ============ TOASTS ============ */
 .toast-root { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
 .toast {

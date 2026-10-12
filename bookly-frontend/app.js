@@ -20,6 +20,7 @@ const CONFIG = {
 const ICONS = {
   home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.005 16.545a2.997 2.997 0 0 1 2.997-2.997A2.997 2.997 0 0 1 15 16.545V22h7V11.543L12 2 2 11.543V22h7.005Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2"/></svg>',
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 10.5A8.5 8.5 0 1 1 10.5 2a8.5 8.5 0 0 1 8.5 8.5Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><line x1="16.511" x2="22" y1="16.511" y2="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>',
+  sparkles: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6-5.6-1.9 5.6-1.9L12 2.5zM19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14zM5 14l.8 2.2L8 17l-2.2.8L5 20l-.8-2.2L2 17l2.2-.8L5 14z" fill="currentColor"/></svg>',
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12v3.45c0 2.849.698 4.005 1.606 4.944.94.909 2.098 1.608 4.946 1.608h6.896c2.848 0 4.006-.7 4.946-1.608C21.302 19.455 22 18.3 22 15.45V8.552c0-2.849-.698-4.006-1.606-4.945C19.454 2.7 18.296 2 15.448 2H8.552c-2.848 0-4.006.699-4.946 1.607C2.698 4.547 2 5.703 2 8.552Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><line x1="6.545" x2="17.455" y1="12.001" y2="12.001" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><line x1="12.003" x2="12.003" y1="6.545" y2="17.455" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>',
   settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.635" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><path d="M14.232 3.656a1.269 1.269 0 0 1-.796-.66L12.93 2h-1.86l-.505.996a1.269 1.269 0 0 1-.796.66m-.001 17.687a1.269 1.269 0 0 1 .796.66l.505.996h1.862l.505-.996a1.269 1.269 0 0 1 .796-.66M3.656 9.768a1.269 1.269 0 0 1-.66.796L2 11.07v1.862l.996.505a1.269 1.269 0 0 1 .66.796m17.687-.001a1.269 1.269 0 0 1 .66-.796L22 12.93v-1.86l-.996-.505a1.269 1.269 0 0 1-.66-.796M7.678 4.522a1.269 1.269 0 0 1-1.03.096l-1.06-.348L4.27 5.587l.348 1.062a1.269 1.269 0 0 1-.096 1.03m11.8 11.799a1.269 1.269 0 0 1 1.03-.096l1.06.348 1.318-1.317-.348-1.062a1.269 1.269 0 0 1 .096-1.03m-14.956.001a1.269 1.269 0 0 1 .096 1.03l-.348 1.06 1.317 1.318 1.062-.348a1.269 1.269 0 0 1 1.03.096m11.799-11.8a1.269 1.269 0 0 1-.096-1.03l.348-1.06-1.317-1.318-1.062.348a1.269 1.269 0 0 1-1.03-.096" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
   heart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.792 3.904A4.989 4.989 0 0 1 21.5 9.122c0 3.072-2.652 4.959-5.197 7.222-2.512 2.243-3.865 3.469-4.303 3.752-.477-.309-2.143-1.823-4.303-3.752C5.141 14.072 2.5 12.167 2.5 9.122a4.989 4.989 0 0 1 4.708-5.218 4.21 4.21 0 0 1 3.675 1.941c.84 1.175.98 1.763 1.12 1.763s.278-.588 1.11-1.766a4.17 4.17 0 0 1 3.679-1.938m0-2a6.04 6.04 0 0 0-4.797 2.127 6.052 6.052 0 0 0-4.787-2.127A6.985 6.985 0 0 0 .5 9.122c0 3.61 2.55 5.827 5.015 7.97.283.246.569.494.853.747l1.027.918a44.998 44.998 0 0 0 3.518 3.018 2 2 0 0 0 2.174 0 45.263 45.263 0 0 0 3.626-3.115l.922-.824c.293-.26.59-.519.885-.774 2.334-2.025 4.98-4.32 4.98-7.94a6.985 6.985 0 0 0-6.708-7.218Z" fill="currentColor"/></svg>',
@@ -40,6 +41,8 @@ const state = {
   token: null,
   userId: null,
   me: null,                 // /user/profile/me
+  aiDocuments: [],
+  aiDocumentId: null,
   users: new Map(),         // id -> { id, username, image_url, private, ... }
   userPromises: new Map(),  // id -> Promise
   liked: new Set(),         // post ids liked by me (localStorage)
@@ -66,7 +69,9 @@ function esc(v) {
 function imgUrl(u) {
   if (!u) return DEFAULT_AVATAR;
   if (/^(https?:|data:|blob:)/i.test(u)) return u;
-  return CONFIG.BASE_URL.replace(/\/$/, '') + (u.startsWith('/') ? u : '/' + u);
+  const path = u.startsWith('/') ? u : '/' + u;
+  const imagePath = path.replace(/^\/uploads\/([^/]+)$/, '/uploads/pics/$1');
+  return CONFIG.BASE_URL.replace(/\/$/, '') + imagePath;
 }
 function postImg(u) {
   if (!u) return '';
@@ -247,6 +252,14 @@ const API = {
   updatePost: (id, form) => api(`/post/put/${id}`, { method: 'PUT', form }),
   deletePost: (id) => api(`/post/delete/${id}`, { method: 'DELETE' }),
   feed: (page = 1, limit = 10) => api('/post/see/', { query: { page, limit } }),
+
+  // ---- AI
+  aiUploadPdf: (file) => api('/ai/upload/pdf', { method: 'POST', form: { file } }),
+  aiChat: (chat, documentId) => api('/ai/chat', {
+    method: 'POST',
+    query: { document_id: documentId },
+    body: { chat },
+  }),
 
   // ---- review
   comments: (book_id) => api('/review/see/comments', { query: { book_id } }),
@@ -699,6 +712,7 @@ function parseHash() {
   let name = 'feed';
   if (path === '/' || path === '') name = 'feed';
   else if (path === '/search') name = 'search';
+  else if (path === '/ai') name = 'ai';
   else if (path === '/profile') name = 'profile';
   else if (path === '/settings') name = 'settings';
   else {
@@ -727,7 +741,7 @@ async function router() {
   setActiveNav(route.path);
   const page = $('#page');
   page.scrollTop = 0; window.scrollTo(0, 0);
-  const pages = { feed: renderFeed, search: renderSearch, profile: renderMyProfile, user: renderUserPage, settings: renderSettings };
+  const pages = { feed: renderFeed, search: renderSearch, ai: renderAI, profile: renderMyProfile, user: renderUserPage, settings: renderSettings };
   const fn = pages[route.name];
   if (!fn) { page.innerHTML = `<div class="empty"><h3>Sahifa topilmadi</h3><p><a class="btn-link" href="#/">Bosh sahifaga</a></p></div>`; return; }
   try {
@@ -1237,6 +1251,154 @@ async function renderSearch(route) {
   if (q) doSearch(q);
   else $('.search-input', page).focus();
 }
+
+function aiDocumentOptions() {
+  const placeholder = `<option value="" disabled ${state.aiDocumentId ? '' : 'selected'}>PDF yuklang va tanlang</option>`;
+  const documents = state.aiDocuments.map((document) =>
+    `<option value="${esc(document.id)}" ${document.id === state.aiDocumentId ? 'selected' : ''}>${esc(document.title)}</option>`
+  ).join('');
+  return placeholder + documents;
+}
+
+function renderAI() {
+  const page = $('#page');
+  page.innerHTML = `
+    <div class="ai-page">
+      <div class="ai-header card">
+        <div>
+          <div class="chip chip-blue">Bookly AI</div>
+          <h1 class="page-title">PDF bo'yicha AI yordamchisi</h1>
+        </div>
+        <p class="page-subtitle">PDF fayllarni yuklang va undagi ma'lumotlar asosida savollaringizga javob oling.</p>
+      </div>
+
+      <div class="ai-grid">
+        <section class="card ai-upload-card">
+          <h2 class="card-title">PDF yuklash</h2>
+          <form data-form="ai-upload" class="ai-upload-form">
+            <label class="field">
+              <span class="muted small">Fayl tanlang</span>
+              <input class="input" type="file" name="file" accept="application/pdf">
+            </label>
+            <button class="btn btn-block" type="submit">Yuklash</button>
+          </form>
+          <div class="ai-status" data-ai-status>Hozircha yaqinda hech qanday PDF yuklanmagan.</div>
+        </section>
+
+        <section class="card ai-chat-card">
+          <h2 class="card-title">AI chat</h2>
+          <div class="ai-chat" data-ai-chat>
+            <div class="ai-message ai-message-system">Salom! Yuklangan PDFlar bo'yicha savollaringizga javob beraman.</div>
+          </div>
+
+          <form data-form="ai-chat" class="ai-chat-form">
+            <label class="field">
+              <span class="muted small">PDF hujjat</span>
+              <select class="input" name="document_id" data-ai-document required>
+                ${aiDocumentOptions()}
+              </select>
+            </label>
+            <textarea class="input" name="chat" rows="4" placeholder="Savolingni yozing..." aria-label="Savolni yozing"></textarea>
+            <div class="ai-chat-actions">
+              <button class="btn" type="submit">Yuborish</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </div>`;
+}
+
+async function handleAiUpload(form) {
+  const input = form.querySelector('input[name="file"]');
+  const file = input && input.files ? input.files[0] : null;
+  const status = $('[data-ai-status]');
+  if (!file) {
+    if (status) status.textContent = 'Iltimos, PDF faylini tanlang.';
+    return;
+  }
+  if (status) {
+    status.textContent = 'Yuklanmoqda...';
+    status.classList.add('is-loading');
+  }
+  try {
+    const res = await API.aiUploadPdf(file);
+    const documentId = Number(res && res.id);
+    if (!Number.isInteger(documentId) || documentId <= 0) {
+      throw new Error('Yuklangan PDF uchun document_id olinmadi.');
+    }
+    state.aiDocuments = state.aiDocuments.filter((document) => document.id !== documentId);
+    state.aiDocuments.push({
+      id: documentId,
+      title: res.title || file.name,
+    });
+    state.aiDocumentId = documentId;
+    const documentSelect = $('[data-ai-document]');
+    if (documentSelect) {
+      documentSelect.innerHTML = aiDocumentOptions();
+      documentSelect.value = String(documentId);
+    }
+    const title = res && res.title ? res.title : file.name;
+    if (status) {
+      status.textContent = `PDF muvaffaqiyatli yuklandi: ${title}`;
+      status.classList.remove('is-loading');
+    }
+    toast('PDF yuklandi');
+    form.reset();
+  } catch (e) {
+    if (status) {
+      status.textContent = e.message || 'PDF yuklashda xatolik yuz berdi.';
+      status.classList.remove('is-loading');
+    }
+    toast(e.message || 'PDF yuklashda xatolik', 'error');
+  }
+}
+
+async function handleAiChat(form) {
+  const input = form.querySelector('textarea[name="chat"]');
+  const text = input ? input.value.trim() : '';
+  const documentSelect = form.querySelector('select[name="document_id"]');
+  const documentId = Number(documentSelect && documentSelect.value);
+  const box = $('[data-ai-chat]');
+  if (!text || !box) return;
+  if (!Number.isInteger(documentId) || documentId <= 0) {
+    toast('Avval PDF hujjatni tanlang.', 'error');
+    return;
+  }
+
+  const questionEl = document.createElement('div');
+  questionEl.className = 'ai-message ai-message-user';
+  questionEl.innerHTML = `<div class="ai-label">Siz</div><div>${esc(text)}</div>`;
+  box.appendChild(questionEl);
+  box.scrollTop = box.scrollHeight;
+  input.value = '';
+
+  const button = form.querySelector('button[type="submit"]');
+  if (button) { button.disabled = true; button.textContent = 'Yuborilmoqda...'; }
+
+  try {
+    const res = await API.aiChat(text, documentId);
+    const answer = res && (res.answer || res.ans || res.message || 'Javob yo\'q');
+    const results = Array.isArray(res && res.results) ? res.results : [];
+    const response = document.createElement('div');
+    response.className = 'ai-message ai-message-bot';
+    const answerHtml = `<div class="ai-label">AI</div><div class="ai-answer">${esc(answer)}</div>${results.length ? `<div class="ai-sources">${results.slice(0,3).map(r => `<div class="ai-source"><span>Parcha ${esc(r.chunk_index ?? '')}</span><p>${esc((r.content || '').slice(0, 220))}</p></div>`).join('')}</div>` : ''}`;
+    response.innerHTML = answerHtml;
+    box.appendChild(response);
+    box.scrollTop = box.scrollHeight;
+  } catch (e) {
+    const err = document.createElement('div');
+    err.className = 'ai-message ai-message-error';
+    err.innerHTML = `<div class="ai-label">Xatolik</div><div>${esc(e.message || 'Javob olishda xatolik yuz berdi')}</div>`;
+    box.appendChild(err);
+    toast(e.message || 'AI javobida xatolik', 'error');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Yuborish';
+    }
+  }
+}
+
 async function doSearch(username) {
   const box = $('[data-result]');
   if (!box) return;
@@ -1699,6 +1861,8 @@ const forms = {
   'post-editor': submitPostEditor,
   'edit-profile': submitEditProfile,
   'change-password': submitChangePassword,
+  'ai-upload': handleAiUpload,
+  'ai-chat': handleAiChat,
   'search': (form) => {
     const v = form.username.value.trim();
     if (!v) return;
@@ -1724,6 +1888,9 @@ document.addEventListener('submit', (e) => {
 });
 document.addEventListener('change', (e) => {
   const input = e.target;
+  if (input.matches && input.matches('[data-ai-document]')) {
+    state.aiDocumentId = Number(input.value) || null;
+  }
   if (input.matches && input.matches('input[type=file][data-preview]')) showPreview(input);
 });
 document.addEventListener('keydown', (e) => {
