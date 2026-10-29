@@ -1,0 +1,8 @@
+.agents/
+.claude/
+.firebase/
+.git/
+.venv*/
+node_modules/
+uploads/
+venv/

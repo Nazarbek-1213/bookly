@@ -44,6 +44,7 @@ class BookResponce(BaseModel):
     description:str
     image_url:str
     author_id:int
+    embedding: list[float] | None = None
 class Comments(BaseModel):
     text:str
 class SessionResponse(BaseModel):
@@ -78,3 +79,6 @@ class PrivateUserResponse (BaseModel):
 class Renewpassword(BaseModel):
     password:str=Field(min_length=8, max_length=29)
     password2:str=Field(min_length=8, max_length=29)
+
+class ChatRequest(BaseModel):
+    chat:str=Field(max_length=2000)

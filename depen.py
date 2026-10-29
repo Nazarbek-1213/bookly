@@ -13,6 +13,13 @@ from datetime import datetime
 import uuid
 import aiofiles
 
+import os
+from supabase import create_client, Client
+
+load_dotenv()
+supabase = create_client(os.getenv("SUPABASE_URL"),
+                          os.getenv("SUPABASE_KEY"))
+
 def get_db():
     db=SessionLocal()
     try:
@@ -42,20 +49,44 @@ def token_checker(db:db_dependency,token:Annotated[str,Depends(oauth2_scheme)]):
       )
    return token_obj
 
+import uuid
+from fastapi import HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
+from supabase import Client
 
-UPLOAD_DIR = "/app/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+MAX_SIZE = 5 * 1024 * 1024
+ALLOWED = {"jpg", "jpeg", "png", "webp"}
+STORAGE_IMAGE_PREFIX = "storage://bookly/"
 
-async def uploadpic (file:UploadFile):
-    
-    file_ext=file.filename.split('.')[-1].lower()
-    allowed_extensions=['jpg','jpeg','png','webp']
-    if file_ext not in allowed_extensions:
-              raise Exception('only picture formats supported')
-    unique_filename=f'{uuid.uuid4()}.{file_ext}'
-    upload_path = os.path.join(UPLOAD_DIR, unique_filename)
+
+async def uploadpic(file: UploadFile, supabase: Client) -> str:
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Fayl nomi yo'q")
+
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED:
+        raise HTTPException(
+            status_code=400,
+            detail="Only jpg, jpeg, png, webp files are supported",
+        )
+
     contents = await file.read()
-    async with aiofiles.open(upload_path, 'wb') as f:
-     await f.write(contents)
-    link = f"/uploads/{unique_filename}"    
-    return link
+    if len(contents) > MAX_SIZE:
+        raise HTTPException(status_code=413, detail="Fayl 5 MB dan katta")
+
+    name = f"{uuid.uuid4()}.{ext}"
+    bucket = supabase.storage.from_("bookly")
+
+    try:
+        await run_in_threadpool(
+            bucket.upload,
+            path=name,
+            file=contents,
+            file_options={"content-type": file.content_type},
+        )
+        return f"{STORAGE_IMAGE_PREFIX}{name}"
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Faylni yuklashda xatolik yuz berdi: {e}",
+        )

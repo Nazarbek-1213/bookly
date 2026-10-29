@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+bookly_dump.sql
+uploads/
+__pycache__/
+*.py[cod]
+.venv*/
+venv/
+node_modules/
+.idea/

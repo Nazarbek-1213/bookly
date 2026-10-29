@@ -4,11 +4,10 @@
     "public": ".",
     "ignore": [
       "firebase.json",
-      "firebase-debug.log",
-      "firestore-debug.log",
+      ".firebaserc",
       "**/.*",
       "**/node_modules/**",
-      "**/Dockerfile"
+      "**/uploads/**"
     ],
     "rewrites": [
       {

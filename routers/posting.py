@@ -1,8 +1,9 @@
 from fastapi import APIRouter,Depends,HTTPException,UploadFile,File,Form
-from depen import db_dependency,uploadpic,token_checker
+from depen import db_dependency,uploadpic,token_checker,supabase
 from model import UserIn,Private,BookResponce
 from database import User,Token,Follower,Accounttype,Book,FollowRequest
 from typing import Annotated
+from integ.embedding import create_embedding
 
 router=APIRouter(prefix='/post')
 
@@ -10,12 +11,15 @@ router=APIRouter(prefix='/post')
 async def SharePost(token_obj:Annotated[Token,Depends(token_checker)],db:db_dependency,
               title:str=Form(...),description:str=Form(...),file:UploadFile=File(...)):
     user=token_obj.user
-    post_url=await uploadpic(file)
+    post_url=await uploadpic(file,supabase)
+    text=f'{title}\n{description}'
+    embedding=create_embedding(text)
     posting=Book(
         title=title,
         description=description,
         author_id=user.id,
-        image_url=post_url  
+        image_url=post_url,  
+        embedding=embedding
     )
     db.add(posting)
     db.commit()
@@ -43,7 +47,7 @@ async def ChangeInfo(token_obj:Annotated[Token,Depends(token_checker)],db:db_dep
             raise HTTPException(
                 status_code=403,
                 detail='it is not your post or book not found')
-    firebase_url=await uploadpic(file)
+    firebase_url=await uploadpic(file,supabase)
     bookid.title=title,
     bookid.description=description,
     bookid.image_url=firebase_url

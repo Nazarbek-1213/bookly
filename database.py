@@ -1,4 +1,5 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Boolean,Enum
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Boolean,Enum,BigInteger
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime, timedelta
@@ -6,20 +7,36 @@ import secrets
 from enum import Enum as Acount
 from dotenv import load_dotenv
 import os 
+from sqlalchemy.sql import func
+
 load_dotenv()
 
-DATABASE_URL=os.getenv('DATABASE_URL')
-engine = create_engine(DATABASE_URL)
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is not set")
+
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    connect_args={"connect_timeout": 10},
+)
+
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
+
 
 class Accounttype(Acount):
     PRIVATE_ACCOUNT = "private_account"
     PUBLIC_ACCOUNT = "public_account"
+
 class FollowRequest(Acount):
     REQUESTED='requested'
     ACCEPTED='accepted'
     REJECTED='rejected'
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
@@ -37,6 +54,7 @@ class User(Base):
     likes = relationship("Like", back_populates="user")
     followers_rel = relationship("Follower", foreign_keys="Follower.following_id", back_populates="following_user")
     following_rel = relationship("Follower", foreign_keys="Follower.follower_id", back_populates="follower_user")
+    pdfbook=relationship('PDFbook',foreign_keys='PDFbook.uploaded_by',back_populates="user")
 
 class Token(Base):
     __tablename__ = "tokens"
@@ -59,6 +77,7 @@ class Book(Base):
     author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     created_at = Column(DateTime, default=datetime.now())
     image_url = Column(String, nullable=True)
+    embedding=Column(Vector(1536),nullable=True)
     
     author = relationship("User", back_populates="books")
     comments = relationship("Comment", back_populates="book")
@@ -107,5 +126,31 @@ class OTP(Base):
     is_used=Column(Boolean,default=False)
 
 
+class PDFbook(Base):
+    __tablename__ = "pdfbooks"
 
-Base.metadata.create_all(engine)
+    id = Column(Integer, primary_key=True, index=True)
+    uploaded_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    title = Column(String(255), nullable=False)
+    filename = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    file_size = Column(BigInteger, nullable=False)
+    status = Column(String(20), nullable=False, default="processing")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    user = relationship("User", foreign_keys=[uploaded_by], back_populates="pdfbook")
+    chunks = relationship("PDFchunk", back_populates="document", cascade="all, delete-orphan")
+
+class PDFchunk(Base):
+    __tablename__ = "pdfchunks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("pdfbooks.id", ondelete="CASCADE"), nullable=False, index=True)
+    chunk_text = Column(Text, nullable=False)
+    page_number = Column(Integer, nullable=True)
+    chunk_index = Column(Integer, nullable=False)
+    embedding = Column(Vector(1536), nullable=True)
+
+    document = relationship("PDFbook", back_populates="chunks")
+
+# Base.metadata.create_all(engine)

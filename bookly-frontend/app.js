@@ -4,7 +4,9 @@
 const CONFIG = {
   BASE_URL: ['8080', '5500'].includes(window.location.port)
     ? `${window.location.protocol}//${window.location.hostname}:8000`
-    : '',
+    : ['localhost', '127.0.0.1'].includes(window.location.hostname) && ['', '80'].includes(window.location.port)
+      ? window.location.origin
+      : 'https://bookly-1-yqfc.onrender.com',
   TOKEN_FIELD: 'token',        // field of the login response that holds the token
   USER_ID_FIELD: 'user_id',    // field of the login response that holds my user id
   STORAGE: {
@@ -68,18 +70,104 @@ function esc(v) {
 }
 function imgUrl(u) {
   if (!u) return DEFAULT_AVATAR;
+  if (storageImageKey(u)) return DEFAULT_AVATAR;
   if (/^(https?:|data:|blob:)/i.test(u)) return u;
   const path = u.startsWith('/') ? u : '/' + u;
   const imagePath = path.replace(/^\/uploads\/([^/]+)$/, '/uploads/pics/$1');
   return CONFIG.BASE_URL.replace(/\/$/, '') + imagePath;
+}
+function storageImageKey(u) {
+  const prefix = 'storage://bookly/';
+  if (typeof u !== 'string') return null;
+  let key;
+  if (u.startsWith(prefix)) {
+    key = u.slice(prefix.length);
+  } else {
+    try {
+      const parsed = new URL(u);
+      if (parsed.protocol !== 'https:' || !parsed.hostname.endsWith('.supabase.co')) return null;
+      const match = parsed.pathname.match(/^\/storage\/v1\/object\/(?:public|sign)\/bookly\/([^/]+)$/);
+      if (!match) return null;
+      key = decodeURIComponent(match[1]);
+    } catch {
+      return null;
+    }
+  }
+  return /^[0-9a-f-]+\.(jpg|jpeg|png|webp)$/i.test(key) ? key : null;
+}
+function imageAttrs(u) {
+  const key = storageImageKey(u);
+  if (key) return `src="${esc(DEFAULT_AVATAR)}" data-storage-image="${esc(key)}"`;
+  return `src="${esc(imgUrl(u))}"`;
 }
 function postImg(u) {
   if (!u) return '';
   return imgUrl(u);
 }
 function avatarImg(u, cls = 'avatar-32') {
-  return `<img class="avatar ${cls}" src="${esc(imgUrl(u))}" alt="">`;
+  return `<img class="avatar ${cls}" ${imageAttrs(u)} alt="">`;
 }
+function setImageSource(img, url) {
+  img.removeAttribute('data-storage-image');
+  img.src = imgUrl(url);
+  const key = storageImageKey(url);
+  if (key) img.dataset.storageImage = key;
+}
+const storageImageUrlCache = new Map();
+async function getStorageImageUrl(key, refresh = false) {
+  const cached = storageImageUrlCache.get(key);
+  if (!refresh && cached && cached.expiresAt > Date.now()) return cached.url;
+  const result = await api(`/auth/image-url/${encodeURIComponent(key)}`);
+  if (!result || typeof result.url !== 'string') {
+    throw new ApiError('Rasm uchun vaqtinchalik havola olinmadi.', 502, result);
+  }
+  storageImageUrlCache.set(key, {
+    url: result.url,
+    expiresAt: Date.now() + Math.max(0, Number(result.expires_in || 3600) - 60) * 1000,
+  });
+  return result.url;
+}
+async function loadStorageImage(img, refresh = false) {
+  const key = img.dataset.storageImage;
+  if (!key || img.dataset.storageImageLoading === 'true') return;
+  img.dataset.storageImageLoading = 'true';
+  try {
+    const url = await getStorageImageUrl(key, refresh);
+    if (img.dataset.storageImage === key) img.src = url;
+  } catch (error) {
+    console.error('Rasm havolasini olishda xatolik:', error);
+    img.src = DEFAULT_AVATAR;
+  } finally {
+    delete img.dataset.storageImageLoading;
+  }
+}
+function scanStorageImages(root) {
+  if (!(root instanceof Element)) return;
+  if (root.matches('img[data-storage-image]')) loadStorageImage(root);
+  root.querySelectorAll('img[data-storage-image]').forEach(img => loadStorageImage(img));
+}
+const storageImageObserver = new MutationObserver(records => {
+  records.forEach(record => {
+    if (record.type === 'childList') record.addedNodes.forEach(scanStorageImages);
+    else if (record.target instanceof HTMLImageElement) loadStorageImage(record.target);
+  });
+});
+storageImageObserver.observe(document.documentElement, {
+  childList: true,
+  subtree: true,
+  attributes: true,
+  attributeFilter: ['data-storage-image'],
+});
+document.addEventListener('error', event => {
+  const img = event.target;
+  if (!(img instanceof HTMLImageElement) || !img.dataset.storageImage || img.dataset.storageImageRetry) return;
+  img.dataset.storageImageRetry = 'true';
+  storageImageUrlCache.delete(img.dataset.storageImage);
+  loadStorageImage(img, true);
+}, true);
+document.addEventListener('load', event => {
+  if (event.target instanceof HTMLImageElement) delete event.target.dataset.storageImageRetry;
+}, true);
 function timeAgo(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -502,11 +590,11 @@ function renderAuth(mode) {
                 <span class="btn-link">Rasm tanlash</span>
               </label>
             </div>
-            <input class="input" name="username" placeholder="Foydalanuvchi nomi" autocomplete="username" required>
-            <input class="input" name="email" type="email" placeholder="Email" autocomplete="email" required>
-            <input class="input" name="bio" placeholder="Bio (ixtiyoriy)">
-            <input class="input" name="password" type="password" placeholder="Parol" autocomplete="new-password" required>
-            <input class="input" name="password2" type="password" placeholder="Parolni tasdiqlang" autocomplete="new-password" required>
+            <input class="input" name="username" placeholder="Foydalanuvchi nomi" autocomplete="nickname" minlength="5" maxlength="50" required>
+            <input class="input" name="email" type="email" placeholder="Email" autocomplete="email" maxlength="100" required>
+            <input class="input" name="bio" placeholder="Bio (ixtiyoriy)" maxlength="300">
+            <input class="input" name="password" type="password" placeholder="Parol" autocomplete="new-password" minlength="8" maxlength="29" required>
+            <input class="input" name="password2" type="password" placeholder="Parolni tasdiqlang" autocomplete="new-password" minlength="8" maxlength="29" required>
             <div class="error-text" data-error></div>
             <button class="btn btn-block" type="submit">Ro'yxatdan o'tish</button>
           </form>
@@ -561,6 +649,9 @@ async function handleRegister(form) {
   const password = form.password.value;
   const password2 = form.password2.value;
   if (!username || !email || !password || !password2) { err.textContent = "Barcha majburiy maydonlarni to'ldiring."; return; }
+  if (username.length < 5 || username.length > 50) { err.textContent = "Foydalanuvchi nomi 5 dan 50 tagacha belgidan iborat bo'lishi kerak."; return; }
+  if (form.email.validity.typeMismatch || email.length > 100) { err.textContent = "To'g'ri email manzilini kiriting."; return; }
+  if (password.length < 8 || password.length > 29) { err.textContent = "Parol 8 dan 29 tagacha belgidan iborat bo'lishi kerak."; return; }
   if (password !== password2) { err.textContent = 'Parollar mos kelmadi.'; return; }
   fd.append('username', username);
   fd.append('email', email);
@@ -698,7 +789,7 @@ async function reloadMe() {
 }
 function updateSidebar() {
   const av = $('#nav-avatar');
-  if (av) av.src = imgUrl(state.me && state.me.image_url);
+  if (av) setImageSource(av, state.me && state.me.image_url);
 }
 
 /* ============================== ROUTER ============================== */
@@ -775,7 +866,7 @@ function postCardHtml(post, author) {
         <button class="icon-btn" type="button" data-action="post-menu" aria-label="Ko'proq">${ICONS.more}</button>
       </header>
       <div class="post-img-wrap" data-action="open-post">
-        <img class="post-img" src="${esc(postImg(post.image_url))}" alt="${esc(post.title)}" loading="lazy">
+        <img class="post-img" ${imageAttrs(post.image_url)} alt="${esc(post.title)}" loading="lazy">
       </div>
       <div class="post-actions">
         ${likeBtnHtml(post.id)}
@@ -861,9 +952,14 @@ async function openPostMenu(id) {
     closeAllModals();
     navigate(`#/user/${post.author_id}`);
   } else if (v === 'copy') {
-    const url = postImg(post.image_url);
-    try { await navigator.clipboard.writeText(url); toast('Havola nusxalandi'); }
-    catch { window.prompt('Havola:', url); }
+    try {
+      const key = storageImageKey(post.image_url);
+      const url = key ? await getStorageImageUrl(key) : postImg(post.image_url);
+      await navigator.clipboard.writeText(url);
+      toast('Havola nusxalandi');
+    } catch (error) {
+      toast(error.message, 'error');
+    }
   }
 }
 
@@ -873,7 +969,7 @@ async function openPostModal(id) {
   if (!post) { toast('Post topilmadi', 'error'); return; }
   const author = await getUser(post.author_id);
   const html = `
-    <div class="pm-img"><img src="${esc(postImg(post.image_url))}" alt="${esc(post.title)}"></div>
+    <div class="pm-img"><img ${imageAttrs(post.image_url)} alt="${esc(post.title)}"></div>
     <div class="pm-side" data-post-id="${esc(post.id)}">
       <div class="pm-head">
         <a href="#/user/${esc(post.author_id)}">${avatarImg(author.image_url, 'avatar-32')}</a>
@@ -1449,7 +1545,7 @@ function gridCellHtml(p) {
   const hasId = p.id !== undefined && p.id !== null;
   return `
     <div class="grid-cell" ${hasId ? `data-post-id="${esc(p.id)}" data-action="open-post"` : 'title="Backend bu post uchun id qaytarmadi"'}>
-      <img src="${esc(postImg(p.image_url))}" alt="${esc(p.title)}" loading="lazy">
+      <img ${imageAttrs(p.image_url)} alt="${esc(p.title)}" loading="lazy">
       <div class="grid-overlay">${esc(p.title)}</div>
     </div>`;
 }
@@ -1651,7 +1747,7 @@ async function renderSettings() {
         <h2 class="card-title">Profilni tahrirlash</h2>
         <form data-form="edit-profile" novalidate>
           <div class="avatar-picker">
-            <img class="avatar" src="${esc(imgUrl(me.image_url))}" alt="" data-preview-target="edit-avatar">
+            <img class="avatar" ${imageAttrs(me.image_url)} alt="" data-preview-target="edit-avatar">
             <label><input type="file" name="file" accept="image/*" data-preview="edit-avatar"><span class="btn-link">Rasmni o'zgartirish</span></label>
           </div>
           <div class="field"><label>Foydalanuvchi nomi</label><input class="input" name="username" value="${esc(me.username)}" required></div>

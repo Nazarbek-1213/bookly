@@ -4,14 +4,16 @@ from dotenv import load_dotenv
 from fastapi import Depends, APIRouter, HTTPException, status,Request,UploadFile,File,Form
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
-from database import User,Token,OTP
+from database import User,Token,OTP,Book,Follower,FollowRequest,Accounttype
 import secrets
 from model import UserIn,Userdb,UserLogin,TokenInfo,Changepassword,Renewpassword
-from depen import get_db,db_dependency
+from depen import get_db,db_dependency,uploadpic,supabase,STORAGE_IMAGE_PREFIX
 from depen import token_checker,uploadpic
 import os
 import random
 import smtplib
+import logging
+import re
 
 
 load_dotenv()
@@ -27,6 +29,7 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 router=APIRouter(prefix='/auth')
 pwd_hasher = CryptContext(schemes=["argon2"], deprecated="auto")
+logger = logging.getLogger(__name__)
 
 
 def password_verifier(plain,password):
@@ -37,6 +40,52 @@ def password_hasher(password:str):
 
 def get_user_by_name(db:db_dependency,username:str):
    return db.query(User).filter(User.username==username).first()
+
+
+@router.get("/image-url/{object_key}", tags=["auth"])
+def get_image_url(
+    object_key: str,
+    db: db_dependency,
+    token_obj: Annotated[Token, Depends(token_checker)],
+):
+    if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp)", object_key):
+        raise HTTPException(status_code=404, detail="Rasm topilmadi")
+
+    image_refs = (
+        f"{STORAGE_IMAGE_PREFIX}{object_key}",
+        supabase.storage.from_("bookly").get_public_url(object_key),
+    )
+    owner = db.query(User).filter(User.image_url.in_(image_refs)).first()
+    book = db.query(Book).filter(Book.image_url.in_(image_refs)).first()
+    if owner is None and book is None:
+        raise HTTPException(status_code=404, detail="Rasm topilmadi")
+
+    image_owner = owner
+    if book is not None:
+        image_owner = db.query(User).filter(User.id == book.author_id).first()
+    if image_owner is None:
+        raise HTTPException(status_code=404, detail="Rasm topilmadi")
+
+    can_view = image_owner.id == token_obj.user_id or image_owner.account_type == Accounttype.PUBLIC_ACCOUNT
+    if not can_view:
+        can_view = db.query(Follower.id).filter(
+            Follower.follower_id == token_obj.user_id,
+            Follower.following_id == image_owner.id,
+            Follower.status == FollowRequest.ACCEPTED,
+        ).first() is not None
+    if not can_view:
+        raise HTTPException(status_code=404, detail="Rasm topilmadi")
+
+    try:
+        signed = supabase.storage.from_("bookly").create_signed_url(object_key, 3600)
+        signed_url = signed.get("signedURL")
+        if not signed_url:
+            raise ValueError("Supabase did not return a signed URL")
+    except Exception as exc:
+        logger.exception("Could not create a signed URL for a stored image")
+        raise HTTPException(status_code=502, detail="Rasmga vaqtinchalik havola yaratilmadi") from exc
+
+    return {"url": signed_url, "expires_in": 3600}
 
 
 
@@ -126,7 +175,7 @@ async def create_user( db: db_dependency,
    
     firebase_url=None
     if file:       
-      firebase_url= await uploadpic(file)
+      firebase_url= await uploadpic(file, supabase)
     new_user = User(
         username=username,
         image_url=firebase_url,
@@ -281,7 +330,7 @@ async def EditUser(db:db_dependency,token_obj:Annotated[Token,Depends(token_chec
     user=token_obj.user
     if user:
      if file is not None:   
-      firebase_url= await uploadpic(file)
+      firebase_url= await uploadpic(file,supabase)
       user.image_url=firebase_url
      if username is not None:
       user.username=username
