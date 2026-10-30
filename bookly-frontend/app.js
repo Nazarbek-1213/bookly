@@ -1359,7 +1359,7 @@ function aiDocumentOptions() {
 function renderAI() {
   const page = $('#page');
   page.innerHTML = `
-    <div class="ai-page">
+    <div class="ai-page" data-ai-step="upload">
       <div class="ai-header card">
         <div>
           <div class="chip chip-blue">Bookly AI</div>
@@ -1382,7 +1382,10 @@ function renderAI() {
         </section>
 
         <section class="card ai-chat-card">
-          <h2 class="card-title">AI chat</h2>
+          <div class="ai-chat-heading">
+            <h2 class="card-title">AI chat</h2>
+            <button class="btn btn-secondary btn-sm ai-mobile-back" type="button" data-action="ai-back-upload">PDF yuklash</button>
+          </div>
           <div class="ai-chat" data-ai-chat>
             <div class="ai-message ai-message-system">Salom! Yuklangan PDFlar bo'yicha savollaringizga javob beraman.</div>
           </div>
@@ -1440,6 +1443,11 @@ async function handleAiUpload(form) {
     }
     toast('PDF yuklandi');
     form.reset();
+    const aiPage = $('.ai-page');
+    if (aiPage && window.matchMedia('(max-width: 640px)').matches) {
+      aiPage.dataset.aiStep = 'chat';
+      window.scrollTo(0, 0);
+    }
   } catch (e) {
     if (status) {
       status.textContent = e.message || 'PDF yuklashda xatolik yuz berdi.';
@@ -1911,6 +1919,12 @@ async function deleteAccount() {
 
 /* ============================== EVENT WIRING ======================== */
 const actions = {
+  'ai-back-upload': () => {
+    const aiPage = $('.ai-page');
+    if (!aiPage) return;
+    aiPage.dataset.aiStep = 'upload';
+    window.scrollTo(0, 0);
+  },
   'auth-switch': (el) => {
     if (el.dataset.mode !== 'register-otp') state.pendingRegistration = null;
     if (el.dataset.mode !== 'login-otp') state.pendingLoginOtp = null;
