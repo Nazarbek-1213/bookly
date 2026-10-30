@@ -4,8 +4,7 @@
 const CONFIG = {
   BASE_URL: ['8080', '5500'].includes(window.location.port)
     ? `${window.location.protocol}//${window.location.hostname}:8000`
-    : ['localhost', '127.0.0.1'].includes(window.location.hostname) && ['', '80'].includes(window.location.port)
-      ? window.location.origin
+    : ['', '80', '443'].includes(window.location.port)      ? window.location.origin
       : 'https://bookly-1-yqfc.onrender.com',
   TOKEN_FIELD: 'token',        // field of the login response that holds the token
   USER_ID_FIELD: 'user_id',    // field of the login response that holds my user id
