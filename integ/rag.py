@@ -1,3 +1,4 @@
+import logging
 import os 
 import uuid
 import aiofiles
@@ -136,11 +137,12 @@ import tempfile
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, UploadFile
+from fastapi import Depends, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
 from depen import supabase  # o'zingizdagi import yo'liga moslang
 
+logger = logging.getLogger(__name__)
 MAX_PDF_SIZE = 20 * 1024 * 1024  # 20 MB
 BUCKET_NAME = "bookly"
 
@@ -162,7 +164,7 @@ async def upload_pdf_to_supabase(contents: bytes, filename: str) -> str:
 
 @router.post('/upload/pdf')
 async def upload_pdf(
-    file: UploadFile,
+    file: Annotated[UploadFile, File()],
     token_obj: Annotated[Token, Depends(token_checker)],
     db: db_dependency,
 ):
@@ -184,9 +186,28 @@ async def upload_pdf(
         tmp.write(contents)
         tmp.close()
 
-        docs = await run_in_threadpool(loader_pdf, tmp_path)
+        try:
+            docs = await run_in_threadpool(loader_pdf, tmp_path)
+        except Exception as exc:
+            logger.exception("Could not read uploaded PDF")
+            raise HTTPException(
+                status_code=422,
+                detail="PDF faylini o'qib bo'lmadi. Fayl buzilmagan yoki parol bilan himoyalanmaganini tekshiring.",
+            ) from exc
         chunked_docs = await run_in_threadpool(chunking_documents, docs)
-        pdf_embedding = await run_in_threadpool(create_pdf_embedding, chunked_docs)
+        if not chunked_docs:
+            raise HTTPException(
+                status_code=422,
+                detail="PDF ichidan matn topilmadi. Skan qilingan PDFlar hozircha qo'llab-quvvatlanmaydi.",
+            )
+        try:
+            pdf_embedding = await run_in_threadpool(create_pdf_embedding, chunked_docs)
+        except Exception as exc:
+            logger.exception("Could not create embeddings for uploaded PDF")
+            raise HTTPException(
+                status_code=502,
+                detail="PDF matnini qayta ishlash xizmati ishlamadi. OpenAI API sozlamalari va ulanishini tekshiring.",
+            ) from exc
     finally:
         tmp.close()
         if os.path.exists(tmp_path):
