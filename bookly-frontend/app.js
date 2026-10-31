@@ -324,7 +324,7 @@ async function api(path, opts = {}) {
 const API = {
   // ---- auth
   register: (form) => api('/auth/registration/', { method: 'POST', form, auth: false }),
-  login: (username, password) => api('/auth/login', { method: 'POST', form: { username, password }, auth: false }),
+  login: (username, password) => api('/auth/login', { method: 'POST', body: { username, password }, auth: false }),
   forgotPassword: (username) => api('/auth/forgot-password/', { method: 'POST', query: { username }, auth: false }),
   verifyOtp: (email, code, password, password2) =>
     api('/auth/verify-otp/', { method: 'POST', query: { email, code }, body: { password, password2 }, auth: false }),
