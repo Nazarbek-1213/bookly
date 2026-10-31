@@ -262,14 +262,14 @@ def validate_otp(db:db_dependency,email:str,code:int,password:Renewpassword):
 
 
 @router.post('/login',response_model=TokenInfo,tags=['auth'])
-def Login(db:db_dependency,request:Request,username:str=Form(...),password:str=Form(...)):   
-   user=db.query(User).filter(User.username==username).first()
+def Login(db:db_dependency,request:Request,login:UserLogin):   
+   user=db.query(User).filter(User.username==login.username).first()
    if not  user:
       raise HTTPException(
          status_code=400,
          detail='registeration  needed'
       )
-   if len(username)<5:
+   if len(login.username)<5:
            raise HTTPException(
                detail='minimum username length should be 5 characters',
                   status_code=403   )
@@ -281,7 +281,7 @@ def Login(db:db_dependency,request:Request,username:str=Form(...),password:str=F
          detail='OTP verification required before login'
       )
    
-   check_password=password_verifier(plain=password,password=user.password)
+   check_password=password_verifier(plain=login.password,password=user.password)
    if not check_password:
       raise HTTPException(
          status_code=400,
